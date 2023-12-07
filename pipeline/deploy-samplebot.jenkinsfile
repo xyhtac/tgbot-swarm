@@ -10,7 +10,7 @@
 pipeline {
     agent any
     environment {
-        // General Configuration
+        // General Configuration 
         VERBOSE = "1"
         DEPLOY = "dev"
 

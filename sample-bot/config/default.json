@@ -1,0 +1,23 @@
+{
+    "api": {
+        "key": "",
+        "request": {
+            "application_id": "",
+            "application_description": "",
+            "api_key": "",
+            "action": ""
+        }
+    },
+    "telegram": {
+		"host": "",
+		"port": "",
+        "token": "",
+		"url": "",
+		"key": "",
+		"cert": "",
+        "maxConnections": "30"
+    },
+    "defaults": {
+        "verbose": 0
+    }
+}

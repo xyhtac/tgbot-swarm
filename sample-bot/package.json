@@ -1,0 +1,16 @@
+{
+  "name": "sample-bot",
+  "version": "1.0.0",
+  "description": "Sample TG webhook controller",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "config": "^3.3.9",
+    "node-fetch": "^2.0.0",
+    "telebot": "^1.4.1"
+  }
+}

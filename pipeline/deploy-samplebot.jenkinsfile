@@ -1,0 +1,149 @@
+// CI pipeline for Jenkins
+// Build and deploy sample TG bot using Docker and Swarm controller api
+
+// Required plugins:
+// GitHub, Pipeline Utility Steps
+
+// On jenkins host:
+// 1. Create 'swarm-tgtoken-[dev/prod]' secret text with TG token
+
+pipeline {
+    agent any
+    environment {
+        // Application-specific deploy configuration
+        TG_TOKEN = credentials("swarm-tgtoken-${DEPLOY}")
+        APP_NAME = "sample-tgbot"
+        APP_DESCRIPTION = "Sample_TG_Bot_Webhook_handler"
+        APP_HOME = "sample-bot"
+
+        // Swarm host-specific deploy configuration
+        API_PORT = "8443"
+        API_PATH = "controller"
+        API_HOST = "0.0.0.0"
+        API_KEY = credentials("swarm-apikey-${DEPLOY}")
+        SWARM_HOSTNAME = credentials("swarm-hostname-${DEPLOY}")
+        SWARM_SSH_CRED = credentials("swarm-sshcred-${DEPLOY}")
+
+        // General Configuration
+        VERBOSE = "1"
+        DEPLOY = "dev"
+    }
+    
+    stages {
+        stage('Get Swarm Node params') {
+            steps {
+                script {
+                    def request = "https://${SWARM_HOSTNAME}:${API_PORT}/${API_PATH}/update?api-key=${API_KEY}\\&application-id=${APP_NAME}\\&description=${APP_DESCRIPTION}"
+                    def response = sh(script: "curl -X GET -k ${request}", returnStdout: true)   
+                    println(response)
+                    def responseObject = readJSON text: response
+                    env.APP_PATH = "$responseObject.path"
+                    env.APP_PORT = "$responseObject.port"
+                    env.IMAGE_NAME = "$responseObject.docker_image_name"
+                    env.CONTAINER_NAME = "$responseObject.docker_container_name"
+                    env.SSL_CERT = "$responseObject.ssl_certificate"
+                    env.SSL_KEY = "$responseObject.ssl_key"
+                }
+            }
+        }
+        stage('Checkout Code') {
+            steps {
+                git(
+                    url: "https://github.com/xyhtac/tgbot-swarm",
+                    branch: "${DEPLOY}",
+                    credentialsId: "GH-PAT",
+                    changelog: true,
+                    poll: true
+                )
+                sh 'ls -la'
+            }
+        }
+        stage("Write SSL Certificates") {
+            steps {
+                writeFile(
+                    file: "${APP_HOME}/${APP_NAME}-${DEPLOY}.pem",
+                    text: "${SSL_CERT}".stripIndent()
+                )
+                writeFile(
+                    file: "${APP_HOME}/${APP_NAME}-${DEPLOY}.key",
+                    text: "${SSL_KEY}".stripIndent()
+                )
+            }
+        }
+        stage("Generate service config") {
+            steps {
+                writeFile(
+                    file: "${APP_HOME}/config/local-${DEPLOY}.json",
+                    text: """\
+                        {
+                            "defaults": {
+                                "verbose": ${VERBOSE}
+                            },
+                            "telegram": {
+                                "host": "${API_HOST}",
+                                "port": "${APP_PORT}",
+                                "token": "${TG_TOKEN}",
+                                "url": "https://${SWARM_HOSTNAME}:${API_PORT}/${APP_PATH}",
+                                "key": "${APP_NAME}-${DEPLOY}.key",
+                                "cert": "${APP_NAME}-${DEPLOY}.pem"
+                            }
+                        }
+                    """.stripIndent()
+                )
+            }
+        }
+        stage("Generate Dockerfile") {
+            steps {
+                writeFile(
+                    file: "${APP_HOME}/Dockerfile",
+                    text: """\
+                        FROM node:10
+                        WORKDIR /app
+                        COPY package.json .
+                        COPY package-lock.json .
+                        COPY ${APP_NAME}-${DEPLOY}.key .
+                        COPY ${APP_NAME}-${DEPLOY}.pem .
+                        RUN npm install
+                        COPY . ./
+                        EXPOSE ${APP_PORT}/tcp
+                        CMD ["node", "index.js"]
+                    """.stripIndent()
+                )
+            }
+        }
+        stage ("Recreate and deploy Docker container") {
+            steps {
+                // package code
+                sh "tar -czvf deploy-package.tgz ${APP_HOME}"
+
+                // perform next steps on remote swarm node via ssh
+                script {
+                    // define ssh client
+                    def remote = [:]
+                    remote.name = "${APP_NAME}-${DEPLOY}"
+                    remote.host = "${SWARM_HOSTNAME}"
+                    remote.user = 'jenkins'
+                    remote.password = "${SWARM_SSH_CRED}"
+                    remote.allowAnyHosts = true
+
+                    // transfer code to swarm and unpack it
+                    stage("Transfer application code") {
+                        sshPut remote: remote, from: 'deploy-package.tgz', into: '/opt/jenkins'
+                        sshCommand remote: remote, command: "cd /opt/jenkins && tar -xzvf deploy-package.tgz"
+                    }
+                    stage("Generate Docker image") {
+                        sshCommand remote: remote, command: "cd /opt/jenkins/${APP_HOME} && docker build -t ${IMAGE_NAME} ."
+                        sshCommand remote: remote, command: "rm /opt/jenkins/${APP_HOME} -rf"
+                        sshCommand remote: remote, command: "rm /opt/jenkins/deploy-package.tgz -f"
+                    }
+                    stage ("Restart Docker container") {
+                        sshCommand remote: remote, command: "docker stop ${CONTAINER_NAME} || true && docker rm ${CONTAINER_NAME} -f || true"
+                        sshCommand remote: remote, command: "docker run -d -p ${APP_PORT}:${APP_PORT} -e NODE_ENV=${DEPLOY} --restart unless-stopped --name ${CONTAINER_NAME} ${IMAGE_NAME}"
+                        sshCommand remote: remote, command: "docker image prune -f && docker image ls && docker ps"
+                        sshCommand remote: remote, command: "docker exec ${CONTAINER_NAME} ls -la"
+                    }
+                }
+            }
+        }
+    }
+}

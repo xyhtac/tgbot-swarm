@@ -1,0 +1,35 @@
+{
+    "controller": {
+        "host": "",
+        "port": "",
+        "fqdn": ""
+    },
+    "defaults": {
+        "verbose": "0",
+        "portrange": [ ],
+        "proxycmd": "",
+        "payloads": "",
+        "nginxconfig": "",
+        "certificate": "",
+        "sslkey": ""
+    },
+    "api": {
+        "key": "",
+        "request": {
+            "application_id": "",
+            "application_description": "",
+            "api_key": "",
+            "action": ""
+        },
+        "reply": {
+            "host": "",
+            "port": "",
+            "url": "",
+            "ssl_certificate": "",
+            "ssl_key": "",
+            "container_name": "",
+            "image_name": ""
+        }
+    }
+
+}

@@ -1,0 +1,257 @@
+// CI pipeline for Jenkins
+// Build and deploy Swarm controller with nginx reverse proxy on dedicated docker node (dev/prod)
+
+// Prepare Swarm host:
+// 1. create user:group and workdir
+// > sudo groupadd jenkins
+// > sudo adduser jenkins
+// > sudo passwd jenkins [password]
+// > sudo usermod -aG jenkins jenkins
+// > mkdir /opt/jenkins
+// > chown jenkins:jenkins jenkins
+// > chmod 755 jenkins
+// 2. install and configure docker
+// > yum install docker
+// > loginctl enable-linger jenkins
+// 3. open port for nginx (CentOS)
+// > firewall-cmd --add-port=8443/tcp --permanent
+
+// On jenkins host:
+// 1. Create 'swarm-apikey-[dev/prod]' secret text with API key
+// 2. Create 'swarm-hostname-[dev/prod]' secret text with swarm host FQDN
+// 3. Create 'swarm-sshcred-[dev/prod]' secret text with swarm host password for jenkins user
+
+// NOTE: Swarm controller has no persistant storage and therefore does not remember your
+// nodes after redeployment, so you need to re-run deployment pipelines of your nodes.
+// It is a good practice to set up a project dependency in Jenkins for this purposes.
+
+pipeline {
+
+    parameters {
+        choice(name: 'DEPLOY', choices: ['dev', 'prod'], description: 'Select deployment environment')
+    }
+    
+    agent any
+
+    environment {
+        // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
+        API_KEY = credentials("swarm-apikey-${DEPLOY}")
+        SWARM_HOSTNAME = credentials("swarm-hostname-${DEPLOY}")
+        SWARM_SSH_CRED = credentials("swarm-sshcred-${DEPLOY}")
+    }
+
+    stages {
+        stage('Set deploy params') {
+            steps {
+                script {
+                    if (env.DEPLOY != 'dev' && env.DEPLOY != 'prod') {
+                        echo 'Parameter not set, using default'
+                        env.DEPLOY = 'dev'
+                    }
+                    env.CONFIGURATION = "pipeline/infrastructure-${DEPLOY}.conf"
+                }
+            }
+        }
+       
+        stage('Checkout Code') {
+            steps {
+                git(
+                    url: "https://github.com/xyhtac/tgbot-swarm",
+                    branch: "${DEPLOY}",
+                    credentialsId: "GH-PAT",
+                    changelog: true,
+                    poll: true
+                )
+                sh 'ls -la'
+            }
+        }
+        
+        stage ("Configure Pipeline") {
+            steps {
+                load "${CONFIGURATION}"
+            }
+        }
+
+        stage('Generate SSL Keys') {
+            steps {
+                // regenerate SSL Certificate and keys on every deploy.
+                sh "cd swarm && openssl req -newkey rsa:2048 -sha256 -nodes -keyout ${PROJECT}-${DEPLOY}.key -x509 -days 3650 -out ${PROJECT}-${DEPLOY}.pem -subj '/C=US/ST=New York/L=Brooklyn/O=${PROJECT} /CN=${SWARM_HOSTNAME}'"
+                sh 'cd swarm && ls -la'
+            }
+        }
+
+        stage("Generate controller config") {
+            steps {
+                writeFile(
+                    file: "swarm/config/local-${DEPLOY}.json",
+                    text: """\
+                        {
+                            "controller": {
+		                        "host": "${API_IP}",
+		                        "port": "${API_PORT}"
+	                        },
+                            "proxy":{
+                                "host": "${PROXY_IP}",
+		                        "port": "${PROXY_PORT}",
+                                "fqdn": "${SWARM_HOSTNAME}"
+                            },
+                            "defaults": {
+                                "verbose": ${VERBOSE},
+                                "portrange": [ 3002, 4000 ],
+                                "proxycmd": "/usr/sbin/nginx -s reload",
+                                "payloads": "config/payloads.json",
+                                "nginxconfig": "/etc/nginx/endpoints.conf",
+                                "certificate": "${PROJECT}-${DEPLOY}.pem",
+                                "sslkey": "${PROJECT}-${DEPLOY}.key"
+                            },
+                            "api": {
+                                "key": "${API_KEY}"
+                            }
+                        }
+                    """.stripIndent()
+                )
+            }
+        }
+
+        stage("Generate proxy configs") {
+            steps {
+                writeFile(
+                    file: "swarm/proxy/conf/nginx.conf",
+                    text: """\
+                        events {
+                            # configuration of connection processing
+                        }
+                        http {
+                            # Configuration specific to HTTP and affecting all virtual servers
+                            
+                            # enable reverse proxy
+                            proxy_redirect              off;
+                            proxy_socket_keepalive      on;
+                            proxy_send_timeout          10s;
+                            proxy_set_header            X-Real-IP   \$remote_addr;
+                            proxy_set_header            X-Forwarded-For \$proxy_add_x_forwarded_for;
+                            proxy_set_header            X-Forwarded-Host \$server_name;
+                            proxy_set_header            X-Forwarded-Proto https;
+
+                            server {
+                                listen ${PROXY_PORT} ssl;
+                                server_name ${SWARM_HOSTNAME};
+
+	                            # ssl_session_cache   shared:SSL:10m;
+                                ssl_session_timeout 1d;
+                                
+                                ssl_verify_client   off;
+                                ssl_protocols               TLSv1.2 TLSv1.3;
+                                ssl_ciphers                 ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256;
+                                ssl_prefer_server_ciphers   on;
+                                
+                                ssl_certificate     /etc/nginx/${PROJECT}-${DEPLOY}.pem;
+                                ssl_certificate_key /etc/nginx/${PROJECT}-${DEPLOY}.key;
+
+                                # serve local files
+                                location / {
+                                    root /usr/share/nginx/html;
+                                    index index.html;
+                                }
+
+                                # redirect controller microservice
+                                location ${API_PATH}/ {
+                                    rewrite ^${API_PATH}/(.*)\$ /\$1 break;
+                                    proxy_pass http://${API_IP}:${API_PORT}/;
+                                }
+
+                                # link controller-generated configurations
+                                include /etc/nginx/endpoints.conf;
+                            }
+                        }
+                    """.stripIndent()
+                )
+                writeFile(
+                    file: "swarm/proxy/conf/endpoints.conf",
+                    text: """\
+                        # placeholder endpoint config for startup
+                    """.stripIndent()
+                )
+            }
+        }
+
+
+        stage("Generate Dockerfile") {
+            steps {
+                writeFile(
+                    file: "swarm/Dockerfile",
+                    text: """\
+                        FROM nginx
+
+                        #install node 14.19.1
+                        RUN apt update
+                        RUN apt install wget -y
+                        RUN apt install xz-utils -y
+                        RUN wget https://nodejs.org/download/release/v14.19.1/node-v14.19.1-linux-x64.tar.xz
+                        RUN tar -xvf node-v14.19.1-linux-x64.tar.xz
+                        RUN cp -r node-v14.19.1-linux-x64/bin /usr/
+                        RUN cp -r node-v14.19.1-linux-x64/include /usr/
+                        RUN cp -r node-v14.19.1-linux-x64/lib /usr/
+                        RUN cp -r node-v14.19.1-linux-x64/share /usr/
+                        RUN export PATH=/usr/node-v14.19.1-linux-x64/bin:\$PATH
+
+                        #run node js server
+                        WORKDIR /app
+                        COPY ./package.json /app/package.json
+                        COPY ./package-lock.json /app/package-lock.json
+                        RUN npm install
+                        COPY . .
+
+                        #nginx conf  
+                        RUN rm /etc/nginx/nginx.conf /etc/nginx/conf.d/default.conf
+                        COPY proxy/conf /etc/nginx
+                        COPY proxy/content /usr/share/nginx/html
+                        COPY ${PROJECT}-${DEPLOY}.key /etc/nginx/${PROJECT}-${DEPLOY}.key
+                        COPY ${PROJECT}-${DEPLOY}.pem /etc/nginx/${PROJECT}-${DEPLOY}.pem
+                        EXPOSE ${PROXY_PORT}/tcp
+                        
+                        CMD nginx -g 'pid /var/run/nginx.pid;' & node /app/api-controller.js
+                    """.stripIndent()
+                )
+            }
+        }
+
+        stage ("Recreate and deploy Docker:swarm-controller") {
+            steps {
+                // package code
+                sh "tar -czvf swarm-deploy.tgz swarm"
+
+                // perform next steps on remote swarm node via ssh
+                script {
+
+                    // define ssh client
+                    def remote = [:]
+                    remote.name = "${PROJECT}-${DEPLOY}"
+                    remote.host = "${SWARM_HOSTNAME}"
+                    remote.user = 'jenkins'
+                    remote.password = "${SWARM_SSH_CRED}"
+                    remote.allowAnyHosts = true
+
+                    // transfer code to swarm and unpack it
+                    stage('Transfer swarm code') {
+                        sshPut remote: remote, from: 'swarm-deploy.tgz', into: '/opt/jenkins'
+                        sshCommand remote: remote, command: "cd /opt/jenkins && tar -xzvf swarm-deploy.tgz"
+                    }
+                    stage('Generate Docker:swarm-controller') {
+                        sshCommand remote: remote, command: "cd /opt/jenkins/swarm && docker build -t ${PROJECT}-controller ."
+                        sshCommand remote: remote, command: "rm /opt/jenkins/swarm -rf"
+                        sshCommand remote: remote, command: "rm /opt/jenkins/swarm-deploy.tgz -f"
+                    }
+                    stage ('Restart Docker:swarm-controller') {
+                        sshCommand remote: remote, command: "docker stop ${PROJECT}-app || true && docker rm ${PROJECT}-app -f || true"
+                        sshCommand remote: remote, command: "docker run -d -p ${PROXY_PORT}:${PROXY_PORT} -e NODE_ENV=${DEPLOY} --restart unless-stopped --name ${PROJECT}-app ${PROJECT}-controller"
+                        sshCommand remote: remote, command: "docker image prune -f && docker image ls && docker ps"
+                        sshCommand remote: remote, command: "docker exec ${PROJECT}-app ls -la"
+                    }
+                }
+            }
+        }
+
+    }
+}
+        

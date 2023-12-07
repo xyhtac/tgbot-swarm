@@ -11,7 +11,7 @@ pipeline {
     agent any
     environment {
         // Application-specific deploy configuration
-        TG_TOKEN = credentials("swarm-tgtoken-${DEPLOY}")
+        TG_TOKEN = credentials("swarm-tgtoken-${DEPLOY}")           // TG bot token from Jenkins secrets store
         APP_NAME = "sample-tgbot"
         APP_DESCRIPTION = "Sample_TG_Bot_Webhook_handler"
         APP_HOME = "sample-bot"
@@ -21,8 +21,8 @@ pipeline {
         API_PATH = "controller"
         API_HOST = "0.0.0.0"
         API_KEY = credentials("swarm-apikey-${DEPLOY}")
-        SWARM_HOSTNAME = credentials("swarm-hostname-${DEPLOY}")
-        SWARM_SSH_CRED = credentials("swarm-sshcred-${DEPLOY}")
+        SWARM_HOSTNAME = credentials("swarm-hostname-${DEPLOY}")    // Swarm node hostname Jenkins secrets store
+        SWARM_SSH_CRED = credentials("swarm-sshcred-${DEPLOY}")     // SSH Passwords for Swarm node from Jenkins secrets store
 
         // General Configuration
         VERBOSE = "1"

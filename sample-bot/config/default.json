@@ -2,10 +2,9 @@
     "api": {
         "key": "",
         "request": {
-            "application_id": "",
-            "application_description": "",
-            "api_key": "",
-            "action": ""
+            "application-id": "",
+            "description": "",
+            "api-key": ""
         }
     },
     "telegram": {

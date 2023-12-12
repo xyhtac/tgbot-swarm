@@ -62,3 +62,22 @@ To minimize our efforts in bot hosting deployment `tgbot-swarm` solves two scope
     "docker_image_name": ""
 }
 ```
+
+### License
+
+check_sateon is licensed under the [MIT](https://www.mit-license.org/) license for all open source applications.
+
+### Bugs and feature requests
+
+Please report bugs [here on Github](https://github.com/xyhtac/check_sateon/issues).
+
+Guidelines for bug reports:
+
+1. Use the GitHub issue search — check if the issue has already been reported.
+2. Check if the issue has been fixed — try to reproduce it using the latest master or development branch in the repository.
+3. Isolate the problem — create a reduced test case and a live example. 
+
+A good bug report shouldn't leave others needing to chase you up for more information.
+Please try to be as detailed as possible in your report.
+
+Feature requests are welcome. Please look for existing ones and use GitHub's "reactions" feature to vote.

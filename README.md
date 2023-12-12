@@ -9,7 +9,7 @@ Telegram offers JSON-based, accessible via a RESTful control [webhook API](https
 Running multiple instances of dockerized bot applications on a single host considering a limited number of allowed ports requires nginx reverse proxy to take care of connection dispatch. Configuration of nginx has to be carefully maintained in regard with actual port settings of docker containers; nginx SSL-certificates also have to be consistent with all deployed bot applications. No external [container orchestration](https://docs.docker.com/engine/swarm/) and no [nginx control API](https://unit.nginx.org/controlapi/) are allowed by the conditions of our task since we are about to fit one standalone host. Therefore, the amount of manwork required to set-up and maintain single-host multi-bot dockerized infrastructure is significantly higher than the development process of the bot itself.
 
 ### Solution.
-To minimize our efforts in bot hosting deployment `tgbot-swarm` solves two scopes of tasks:
+To minimise our efforts in bot hosting deployment `tgbot-swarm` solves two scopes of tasks:
 
 1. Provide a built-in API that employs port, path and SSL-certificate assignment mechanism and a relevant proxy config generation. In a nutshell it is a node.js-express controller application that runs in the same docker container with nginx, serves RESTful JSON-based API and sends system control signals to local nginx process.
 

@@ -1,4 +1,5 @@
-![](https://www.imagebam.com/view/MEQSKLR)
+![](https://i.ibb.co/1Lj5MBF/swarm-head.jpg)
+
 
 ## tgbot-swarm
 ### Abstract.

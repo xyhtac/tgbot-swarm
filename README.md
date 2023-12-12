@@ -1,4 +1,4 @@
-![](https://i.ibb.co/1Lj5MBF/swarm-head.jpg)
+![](https://images4.imagebam.com/96/04/8b/MEQSKLR_o.jpg)
 
 
 ## tgbot-swarm

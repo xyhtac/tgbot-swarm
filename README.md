@@ -29,10 +29,10 @@ To minimize our efforts in bot hosting deployment `tgbot-swarm` solves two scope
 2. Make your own fork of this repository.
 3. Edit `pipeline/infrastructure-dev.conf` according to your host environment.
 4. Create plaintext records in Jenkins secret storage:
-`swarm-apikey-dev` = SOME-RANDOM-STRING
-`swarm-hostname-dev` = Domain name of your tgbot host.
-`swarm-sshcred-dev` = SSH password of previously created user Jenkins on the host
-`swarm-tgtoken-dev` = Telegram API key of your bot
+* `swarm-apikey-dev` = SOME-RANDOM-STRING
+* `swarm-hostname-dev` = Domain name of your tgbot host.
+* `swarm-sshcred-dev` = SSH password of previously created user Jenkins on the host
+* `swarm-tgtoken-dev` = Telegram API key of your bot
 5. Edit `pipeline/deploy-controller.jenkinsfile`: set your repo url in the `Checkout Code` stage.
 6. Edit `pipeline/deploy-samplebot.jenkinsfile` according to your host environment and set your repo url in the `Checkout Code` stage.
 7. Create Jenkins pipelines using `pipeline/deploy-controller.jenkinsfile` and `pipeline/deploy-samplebot.jenkinsfile` from your repo.

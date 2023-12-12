@@ -12,6 +12,31 @@ To minimize our efforts in bot hosting deployment `tgbot-swarm` solves two scope
 
 2. Provide Jenkins groovy pipelines to automate bulid and remote deployment (using ssh in this example) of a controller/proxy container and an arbitrary bot container based on response from the controller.
 
+### Usage.
+1. Prepare your `tgbot-swarm` host:
+```
+> sudo groupadd jenkins
+> sudo adduser jenkins
+> sudo passwd jenkins [password]
+> sudo usermod -aG jenkins jenkins
+> loginctl enable-linger jenkins
+> mkdir /opt/jenkins
+> chown jenkins:jenkins jenkins
+> chmod 755 jenkins
+> yum install docker
+> firewall-cmd --add-port=[external-port]/tcp --permanent
+```
+2. Make your own fork of this repository.
+3. Edit `pipeline/infrastructure-dev.conf` according to your host environment.
+4. Create plaintext records in Jenkins secret storage:
+`swarm-apikey-dev` = SOME-RANDOM-STRING
+`swarm-hostname-dev` = Domain name of your tgbot host.
+`swarm-sshcred-dev` = SSH password of previously created user Jenkins on the host
+`swarm-tgtoken-dev` = Telegram API key of your bot
+5. Edit `pipeline/deploy-controller.jenkinsfile`: set your repo url in the `checkout` stage.
+6.
+
+
 ### API request/response
 ```
 "request": {

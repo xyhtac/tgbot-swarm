@@ -33,8 +33,10 @@ To minimize our efforts in bot hosting deployment `tgbot-swarm` solves two scope
 `swarm-hostname-dev` = Domain name of your tgbot host.
 `swarm-sshcred-dev` = SSH password of previously created user Jenkins on the host
 `swarm-tgtoken-dev` = Telegram API key of your bot
-5. Edit `pipeline/deploy-controller.jenkinsfile`: set your repo url in the `checkout` stage.
-6.
+5. Edit `pipeline/deploy-controller.jenkinsfile`: set your repo url in the `Checkout Code` stage.
+6. Edit `pipeline/deploy-samplebot.jenkinsfile` according to your host environment and set your repo url in the `Checkout Code` stage.
+7. Create Jenkins pipelines using `pipeline/deploy-controller.jenkinsfile` and `pipeline/deploy-samplebot.jenkinsfile` from your repo.
+8. Run `deploy-controller` and `deploy-samplebot` sequentially.
 
 
 ### API request/response
@@ -47,12 +49,13 @@ To minimize our efforts in bot hosting deployment `tgbot-swarm` solves two scope
 ```
 ```
 "response": {
-    "host": "",
+    "path": "",
     "port": "",
     "url": "",
+    "updated": "",
     "ssl_certificate": "",
     "ssl_key": "",
-    "container_name": "",
-    "image_name": ""
+    "docker_container_name": "",
+    "docker_image_name": ""
 }
 ```

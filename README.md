@@ -1,7 +1,7 @@
 ![](https://images4.imagebam.com/49/a5/01/MEQST5U_o.jpg)
 Run multiple Telegram bots on a single host
 
-![Static Badge](https://img.shields.io/badge/dev-tgbot_swarm_1.0-8A2BE2)
+[![tgbot-swarm-1.0](https://img.shields.io/badge/dev-tgbot_swarm_1.0-7a00b9)](https://github.com/xyhtac/tgbot-swarm)
 
 ### Abstract.
 Telegram offers JSON-based, accessible via a RESTful control [webhook API](https://core.telegram.org/bots/API) updates to push data to the handler application running as a publicly available https server on one of valid ports (80, 443, 88 or 8443) with self-signed or CA-signed certificate. A frugal build-and-forget methodology is oftentimes preferred to avoid the costs of using fancy off-site CI/CD platforms and no-code services. Popular and well-maintained opensource bot libraries widely used by developers ([Telebot](https://github.com/mullwar/telebot), [Telegraf](https://github.com/telegraf/telegraf), etc.) usually serve only one bot token per process.

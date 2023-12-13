@@ -64,7 +64,7 @@ To minimise our efforts in bot hosting deployment `tgbot-swarm` solves two scope
 ```
 
 ### License
-check_sateon is licensed under the [MIT](https://www.mit-license.org/) license for all open source applications.
+`tgbot-swarm` is licensed under the [MIT](https://www.mit-license.org/) license for all open source applications.
 
 ### Bugs and feature requests
 

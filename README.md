@@ -1,6 +1,5 @@
-![](https://images4.imagebam.com/96/04/8b/MEQSKLR_o.jpg)
+![](https://images4.imagebam.com/49/a5/01/MEQST5U_o.jpg)
 Run multiple Telegram bots on a single host
-
 
 ### Abstract.
 Telegram offers JSON-based, accessible via a RESTful control [webhook API](https://core.telegram.org/bots/API) updates to push data to the handler application running as a publicly available https server on one of valid ports (80, 443, 88 or 8443) with self-signed or CA-signed certificate. A frugal build-and-forget methodology is oftentimes preferred to avoid the costs of using fancy off-site CI/CD platforms and no-code services. Popular and well-maintained opensource bot libraries widely used by developers ([Telebot](https://github.com/mullwar/telebot), [Telegraf](https://github.com/telegraf/telegraf), etc.) usually serve only one bot token per process.
@@ -41,7 +40,6 @@ To minimise our efforts in bot hosting deployment `tgbot-swarm` solves two scope
 7. Create Jenkins pipelines using `pipeline/deploy-controller.jenkinsfile` and `pipeline/deploy-samplebot.jenkinsfile` from your repo.
 8. Run `deploy-controller` and `deploy-samplebot` sequentially.
 
-
 ### API request/response
 ```
 "request": {
@@ -64,20 +62,16 @@ To minimise our efforts in bot hosting deployment `tgbot-swarm` solves two scope
 ```
 
 ### License
-
 check_sateon is licensed under the [MIT](https://www.mit-license.org/) license for all open source applications.
 
 ### Bugs and feature requests
 
 Please report bugs [here on Github](https://github.com/xyhtac/check_sateon/issues).
-
 Guidelines for bug reports:
-
 1. Use the GitHub issue search — check if the issue has already been reported.
 2. Check if the issue has been fixed — try to reproduce it using the latest master or development branch in the repository.
 3. Isolate the problem — create a reduced test case and a live example. 
 
 A good bug report shouldn't leave others needing to chase you up for more information.
 Please try to be as detailed as possible in your report.
-
 Feature requests are welcome. Please look for existing ones and use GitHub's "reactions" feature to vote.

@@ -29,10 +29,12 @@ pipeline {
                     env.CONFIGURATION = "pipeline/infrastructure-${DEPLOY}.conf"
                 }
                 load "${CONFIGURATION}"
-
-                // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
-                env.API_KEY                 = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store
-                env.HOSTNAME                = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
+                script {
+                    // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
+                    env.API_KEY  = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store
+                    env.HOSTNAME = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
+                    env.CERT_NAME = "${PROJECT}-${SERVICE}"              // Define certificate namespace
+                }
             }
         }
 
@@ -64,7 +66,6 @@ pipeline {
 
         stage('Generate SSL Keys') {
             steps {
-                env.CERT_NAME = "${PROJECT}-${SERVICE}"
                 // regenerate SSL Certificate and keys on every deploy.
                 sh "cd swarm && openssl req -newkey rsa:2048 -sha256 -nodes -keyout ${CERT_NAME}.key -x509 -days 3650 -out ${CERT_NAME}.pem -subj '/C=US/ST=New York/L=Brooklyn/O=${PROJECT} /CN=${HOSTNAME}'"
                 sh 'cd swarm && ls -la'

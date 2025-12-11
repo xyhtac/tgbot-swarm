@@ -10,10 +10,15 @@ pipeline {
 
     environment {
 
+        PROJECT                 = 'swarm'                                   // Project namesace ID
         SERVICE                 = 'controller'                              // Microservice identifier
         REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
         CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
-
+        
+        // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
+        API_KEY  = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store
+        HOSTNAME = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
+        CERT_NAME = "${PROJECT}-${SERVICE}"              // Define certificate namespace
     }
     
 
@@ -29,12 +34,6 @@ pipeline {
                     env.CONFIGURATION = "pipeline/infrastructure-${DEPLOY}.conf"
                 }
                 load "${CONFIGURATION}"
-                script {
-                    // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
-                    env.API_KEY  = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store
-                    env.HOSTNAME = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
-                    env.CERT_NAME = "${PROJECT}-${SERVICE}"              // Define certificate namespace
-                }
             }
         }
 

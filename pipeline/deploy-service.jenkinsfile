@@ -92,6 +92,8 @@ pipeline {
                     CONTAINER_PORT = ${env.CONTAINER_PORT}
                     SERVICE_PORT   = ${env.SERVICE_PORT}
                     SERVICE_PROTO  = ${env.SERVICE_PROTO}
+
+                    HOST_CREDENTIALS = ${HOST_CREDENTIALS}
                     =================================
                     """
                 }
@@ -191,7 +193,7 @@ pipeline {
                 script {
                     withCredentials([
                         usernamePassword(
-                            credentialsId: "${HOST_CREDS}",
+                            credentialsId: "${HOST_CREDENTIALS}",
                             usernameVariable: 'HOST_USER',
                             passwordVariable: 'HOST_PASS'
                         )

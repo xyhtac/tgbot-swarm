@@ -5,7 +5,7 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'DEPLOY', choices: ['dev', 'prod'], description: 'Select deployment environment')
+        choice(name: 'DEPLOY', choices: ['dev', 'prod'], description: 'Select configuration environment')
     }
 
     environment {

@@ -1,0 +1,228 @@
+// Build single microservice with a defined environment settings
+
+pipeline {
+
+    agent any
+
+    parameters {
+        choice(name: 'DEPLOY', choices: ['dev', 'prod'], description: 'Select configuration environment')
+        choice(name: 'SERVICE', choices: ['controller', 'datastore' ], description: 'Select single microservice to deploy')
+        choice(name: 'IMAGE_TAG', choices: ['latest', 'select'], description: 'Deploy latest build or select build on registry')
+    }
+    
+
+    environment {
+
+        PROJECT                 = 'swarm'                                   // Project namesace ID
+        REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
+        CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
+        DATASTORE_VOLUME        = "/opt/swarm-storage"                      // Path to persistent storage
+        
+        // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
+        // API_KEY     = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store
+        // CERT_NAME   = "${PROJECT}-${SERVICE}"              // Define certificate namespace
+        DB_PASS     = credentials("${PROJECT}-dbpass")      // Database password from Jenkins secrets store
+        HOSTNAME    = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
+        HOST_CREDS  = credentials("${PROJECT}-sshcreds")  // Swarm node SSH credentials from Jenkins secrets store
+
+        REPOSITORY  = "${PROJECT}-${SERVICE}-${DEPLOY}"
+    }
+
+
+   
+    stages {
+                
+        stage('Configure pipeline') {
+            steps {
+                script {
+                    if (env.DEPLOY != 'dev' && env.DEPLOY != 'prod') {
+                        echo 'Parameter not set, using default'
+                        env.DEPLOY = 'dev'
+                    }
+                    env.CONFIGURATION = "pipeline/infrastructure-${DEPLOY}.conf"
+                }
+                load "${CONFIGURATION}"
+            }
+        }
+
+        
+        stage('Resolve deployment configuration') {
+            steps {
+                script {
+                    def hosts = [
+                        frontend: "${HOSTNAME}",
+                        backend : "${HOSTNAME}"
+                    ]
+
+                    // Define service placement & ports
+                    def services = [
+                        "controller": [
+                            host: "backend",
+                            containerPort: "${PROXY_PORT}",
+                            servicePort:   "${PROXY_PORT}",
+                            protocol: "tcp"
+                        ],
+                        "datastore": [
+                            host: "backend",
+                            containerPort: "${DB_PORT}",
+                            servicePort:   "${DB_PORT}",
+                            protocol: "tcp"
+                        ]
+                    ]
+
+                    // Pick service config
+                    def svc = services[env.SERVICE]
+                    def hostType = svc.host             // frontend or backend selector
+                    def targetHost = hosts[hostType]    // actual HOST
+
+                    // Expose values to downstream steps
+                    env.TARGET_HOST     = targetHost
+                    env.CONTAINER_PORT  = svc.containerPort.toString()
+                    env.SERVICE_PORT    = svc.servicePort.toString()
+                    env.SERVICE_PROTO   = svc.protocol.toString()
+                    env.HOST_TYPE       = hostType
+
+                    echo """
+                    === Deployment Configuration ===
+                    SERVICE        = ${env.SERVICE}
+                    DEPLOY         = ${env.DEPLOY}
+                    TARGET_HOST    = ${env.TARGET_HOST}
+                    HOST_TYPE      = ${env.HOST_TYPE}
+                    CONTAINER_PORT = ${env.CONTAINER_PORT}
+                    SERVICE_PORT   = ${env.SERVICE_PORT}
+                    SERVICE_PROTO  = ${env.SERVICE_PROTO}
+                    =================================
+                    """
+                }
+            }
+        }
+
+        stage('Select Image for node:controller') {
+            when {
+                expression { env.SERVICE == 'controller' }
+            }            
+            steps {
+                script {
+                    if ( IMAGE_TAG != "latest" ) {
+                        // if BUILD is undefined or has value 'select', get list of tags 
+                        // from repository and ask user to select one.
+                        def registry = "https://${CONTAINER_REGISTRY}"
+
+                        withCredentials([usernamePassword(
+                            credentialsId: "${REGISTRY_CREDENTIALS}",
+                            usernameVariable: 'REG_USER',
+                            passwordVariable: 'REG_PASS'
+                        )]) {
+                            def json = sh(
+                                script: """
+                                    curl -s -u "$REG_USER:$REG_PASS" ${registry}/v2/${REPOSITORY}/tags/list
+                                """,
+                                returnStdout: true
+                            )
+
+                            def tags = new groovy.json.JsonSlurper().parseText(json).tags
+                            if (!tags) tags = ["no-tags-found"]
+
+                            // User picks a tag
+                            env.IMAGE_TAG = input(
+                                id: "TagSelector",
+                                message: "Select image tag for deployment",
+                                parameters: [
+                                    choice(name: 'IMAGE_TAG', choices: tags.join('\n'))
+                                ]
+                            )
+                        }
+                    }
+                    echo "Selected image: ${env.IMAGE_TAG}"
+                }
+            }
+        }
+        stage('Deploy to remote host node:controller') {
+            when {
+                expression { env.SERVICE == 'controller' }
+            } 
+            steps {
+                script {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: "${REGISTRY_CREDENTIALS}",
+                            usernameVariable: 'REG_USER',
+                            passwordVariable: 'REG_PASS'
+                        ),
+                        usernamePassword(
+                            credentialsId: "${HOST_CREDS}",
+                            usernameVariable: 'HOST_USER',
+                            passwordVariable: 'HOST_PASS'
+                        )
+                    ]) {
+                        sh """
+                            sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${TARGET_HOST} '
+                                echo "*** Logging into registry ***"
+                                echo "${REG_PASS}" | docker login ${CONTAINER_REGISTRY} -u "${REG_USER}" --password-stdin
+
+                                echo "*** Pulling image ${IMAGE_TAG} ***"
+                                docker pull ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
+
+                                echo "*** Stopping old container ***"
+                                docker rm -f ${PROJECT}_${SERVICE} || true
+
+                                echo "*** Starting new container ***"
+                                docker run -d --name ${PROJECT}_${SERVICE} \\
+                                    -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
+                                    -e NODE_ENV=${DEPLOY} \\
+                                    --restart unless-stopped \\
+                                    ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
+
+                                echo "*** Deployment complete ***"
+                            '
+                        """
+                    }
+                }
+            }
+        }
+
+
+        stage('Deploy to remote host mysql:datastore') {
+            when {
+                expression { env.SERVICE == 'datastore' }
+            } 
+            steps {
+                script {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: "${HOST_CREDS}",
+                            usernameVariable: 'HOST_USER',
+                            passwordVariable: 'HOST_PASS'
+                        )
+                    ]) {
+                        sh """
+                            sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${TARGET_HOST} '
+
+                                docker volume create --driver local \\
+                                    --opt type=none \\
+                                    --opt device=${DATASTORE_VOLUME}\\
+                                    --opt o=bind ${PROJECT}-${SERVICE}-data || true
+
+                                echo "*** Stopping old container ***"
+                                docker rm -f ${PROJECT}_${SERVICE} || true
+
+                                echo "*** Starting new container ***"
+                                docker run -d --name ${PROJECT}_${SERVICE} \\
+                                    -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
+                                    -e MYSQL_ROOT_PASSWORD='${DB_PASS}' \\
+                                    -v ${PROJECT}-${SERVICE}-data:/var/lib/mysql \\
+                                    --restart unless-stopped \\
+                                mysql:8.0
+
+                                echo "*** Deployment complete ***"
+                            '
+                        """
+                    }
+                }
+            }
+        }
+
+
+
+    }
+}

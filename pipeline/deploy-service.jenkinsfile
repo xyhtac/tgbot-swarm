@@ -24,6 +24,7 @@ pipeline {
         DB_PASS     = credentials("${PROJECT}-dbpass")      // Database password from Jenkins secrets store
         HOSTNAME    = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
         HOST_CREDS  = credentials("${PROJECT}-sshcreds")  // Swarm node SSH credentials from Jenkins secrets store
+        
 
         REPOSITORY  = "${PROJECT}-${SERVICE}-${DEPLOY}"
     }

@@ -21,10 +21,10 @@ pipeline {
         // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
         // API_KEY     = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store
         // CERT_NAME   = "${PROJECT}-${SERVICE}"              // Define certificate namespace
-        DB_PASS     = credentials("${PROJECT}-dbpass")      // Database password from Jenkins secrets store
-        HOSTNAME    = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
-        HOST_CREDS  = credentials("${PROJECT}-sshcreds")  // Swarm node SSH credentials from Jenkins secrets store
-        
+        DB_PASS             = credentials("${PROJECT}-dbpass")      // Database password from Jenkins secrets store
+        HOSTNAME            = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
+        HOST_CREDENTIALS    = credentials("${PROJECT}-sshcreds")  // Swarm node SSH credentials from Jenkins secrets store
+
 
         REPOSITORY  = "${PROJECT}-${SERVICE}-${DEPLOY}"
     }
@@ -151,7 +151,7 @@ pipeline {
                             passwordVariable: 'REG_PASS'
                         ),
                         usernamePassword(
-                            credentialsId: "${HOST_CREDS}",
+                            credentialsId: "${HOST_CREDENTIALS}",
                             usernameVariable: 'HOST_USER',
                             passwordVariable: 'HOST_PASS'
                         )

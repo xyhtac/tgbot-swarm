@@ -16,7 +16,7 @@ pipeline {
         PROJECT                 = 'swarm'                                   // Project namesace ID
         REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
         CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
-        DATASTORE_VOLUME        = "/opt/swarm-storage"                      // Path to persistent storage
+        DATASTORE_VOLUME        = "/opt/swarm-store"                      // Path to persistent storage
         
         // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
         // API_KEY     = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store

@@ -70,7 +70,8 @@ for port in "${PROXY_PORT}" "${API_PORT}"; do
 done
 
 # Export for envsubst
-export API_PORT PROXY_PORT API_PATH HOSTNAME
+export API_PORT PROXY_PORT API_PATH HOSTNAME NODE_ENV
+
 
 ############################
 # Log effective config

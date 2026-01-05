@@ -174,8 +174,8 @@ pipeline {
                                     -e API_PATH=${API_PATH} \\
                                     -e API_PORT=${API_PORT} \\
                                     -e PROXY_PORT=${PROXY_PORT} \\
-                                    -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                     -e NODE_ENV=${DEPLOY} \\
+                                    -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                     --restart unless-stopped \\
                                     ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
 

@@ -93,25 +93,6 @@ echo "[INIT] PROXY_IP=${PROXY_IP}"
 
 
 ############################
-# Render nginx config
-############################
-cd /etc/nginx
-
-envsubst \
-  '${PROXY_PORT} ${HOSTNAME} ${API_PATH} ${API_PORT}' \
-  < /etc/nginx/nginx.conf.template \
-  > /etc/nginx/nginx.conf
-
-echo "[NGINX] Config rendered"
-
-
-#cat /etc/nginx/nginx.conf
-
-nginx -t
-
-
-
-############################
 # SSL generation
 ############################
 
@@ -136,6 +117,23 @@ chmod 644 "$CERT_DIR/ssl.pem"
 ln -sf "$CERT_DIR/ssl.key" /etc/nginx/ssl.key
 ln -sf "$CERT_DIR/ssl.pem" /etc/nginx/ssl.pem
 
+
+############################
+# Render nginx config
+############################
+cd /etc/nginx
+
+envsubst \
+  '${PROXY_PORT} ${HOSTNAME} ${API_PATH} ${API_PORT}' \
+  < /etc/nginx/nginx.conf.template \
+  > /etc/nginx/nginx.conf
+
+echo "[NGINX] Config rendered"
+
+
+#cat /etc/nginx/nginx.conf
+
+nginx -t
 
 
 ############################

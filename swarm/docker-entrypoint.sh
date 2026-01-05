@@ -73,6 +73,7 @@ done
 export API_PORT PROXY_PORT API_PATH HOSTNAME NODE_ENV
 
 
+
 ############################
 # Log effective config
 ############################
@@ -117,7 +118,10 @@ nginx -t
 ############################
 # Generate application config
 ############################
+cd /app
+
 CONFIG_DIR="/app/config"
+export NODE_CONFIG_DIR="${CONFIG_DIR}"
 CONFIG_FILE="${CONFIG_DIR}/local-${DEPLOY}.json"
 
 mkdir -p "${CONFIG_DIR}"

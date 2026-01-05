@@ -8,48 +8,42 @@ pipeline {
         choice(name: 'DEPLOY', choices: ['dev', 'prod'], description: 'Select configuration environment')
     }
 
-
     environment {
-
-        // General Configuration
-        VERBOSE = "1"
-        DEPLOY = "alpha"
-
-        // PROXY service params
-        PROXY_IP = "10.114.0.3"
-        PROXY_PORT = "8443"
-
-        // CONTROLLER service params
-        API_ID = "tgswarm"
-        API_IP = "127.0.0.1"
-        API_PORT = "8081"
-        API_PATH = "/controller"
-
-        // DATASTRORE service params
-        DB_VOLUME = "datastore"
-        DB_PORT = "3306"
 
         PROJECT                 = 'swarm'                                   // Project namesace ID
         SERVICE                 = 'controller'                              // Microservice identifier
         REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
         CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
-        CERT_NAME               = 'ssl'                                     // Define certificate namespace
         
         // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
         API_KEY  = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store
         HOSTNAME = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
-
+        CERT_NAME = "${PROJECT}-${SERVICE}"              // Define certificate namespace
     }
     
 
     stages {
                 
+        stage('Configure pipeline') {
+            steps {
+                script {
+                    if (env.DEPLOY != 'dev' && env.DEPLOY != 'prod') {
+                        echo 'Parameter not set, using default'
+                        env.DEPLOY = 'dev'
+                    }
+                    env.CONFIGURATION = "pipeline/infrastructure-${DEPLOY}.conf"
+                }
+                load "${CONFIGURATION}"
+            }
+        }
+
+
         stage('Checkout Repo') {
             steps {
                 script {
                     git(
                         url: "https://github.com/xyhtac/tgbot-swarm",
-                        branch: "alpha",
+                        branch: "${DEPLOY}",
                         changelog: true,
                         poll: true
                     )
@@ -86,12 +80,12 @@ pipeline {
                     text: """\
                         {
                             "controller": {
-		                        "host": "127.0.0.1",
-		                        "port": "8081"
+		                        "host": "${API_IP}",
+		                        "port": "${API_PORT}"
 	                        },
                             "proxy":{
                                 "host": "${PROXY_IP}",
-		                        "port": "443",
+		                        "port": "${PROXY_PORT}",
                                 "fqdn": "${HOSTNAME}"
                             },
                             "defaults": {

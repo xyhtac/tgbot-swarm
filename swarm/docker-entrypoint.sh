@@ -92,26 +92,46 @@ echo "[INIT] PROXY_IP=${PROXY_IP}"
 ############################
 # SSL generation
 ############################
-cd /etc/nginx
 
-openssl req -newkey rsa:2048 -sha256 -nodes \
-  -keyout ssl.key \
-  -x509 -days 3650 \
-  -out ssl.pem \
-  -subj "/C=US/ST=New York/L=Brooklyn/O=${PROJECT}/CN=${HOSTNAME}"
+CERT_DIR="/app/certs"
+mkdir -p "$CERT_DIR"
 
-echo "[INIT] SSL certificates generated"
+if [ ! -f "$CERT_DIR/ssl.key" ] || [ ! -f "$CERT_DIR/ssl.pem" ]; then
+  echo "[INIT] Generating SSL certificates"
+
+  openssl req -newkey rsa:2048 -sha256 -nodes \
+    -keyout "$CERT_DIR/ssl.key" \
+    -x509 -days 3650 \
+    -out "$CERT_DIR/ssl.pem" \
+    -subj "/C=US/ST=New York/L=Brooklyn/O=${PROJECT}/CN=${HOSTNAME}"
+else
+  echo "[INIT] Using existing SSL certificates"
+fi
+
+chmod 600 "$CERT_DIR/ssl.key"
+chmod 644 "$CERT_DIR/ssl.pem"
+
+ln -sf "$CERT_DIR/ssl.key" /etc/nginx/ssl.key
+ln -sf "$CERT_DIR/ssl.pem" /etc/nginx/ssl.pem
+
+
+
+
 
 ############################
 # Render nginx config
 ############################
+cd /etc/nginx
+
 envsubst \
   '${PROXY_PORT} ${HOSTNAME} ${API_PATH} ${API_PORT}' \
   < /etc/nginx/nginx.conf.template \
   > /etc/nginx/nginx.conf
 
 echo "[NGINX] Config rendered"
-cat /etc/nginx/nginx.conf
+
+
+#cat /etc/nginx/nginx.conf
 
 nginx -t
 

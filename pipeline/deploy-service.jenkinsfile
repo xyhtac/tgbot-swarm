@@ -173,7 +173,6 @@ pipeline {
                                     -e DEPLOY=${DEPLOY} \\
                                     -e API_PATH=${API_PATH} \\
                                     -e PROXY_PORT=${PROXY_PORT} \\
-
                                     -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                     -e NODE_ENV=${DEPLOY} \\
                                     --restart unless-stopped \\

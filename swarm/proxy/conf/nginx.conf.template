@@ -30,7 +30,7 @@ http {
 
         location ${API_PATH}/ {
             rewrite ^${API_PATH}/(.*)$ /$1 break;
-            proxy_pass http://127.0.0.1:${API_PORT}/;
+            proxy_pass http://127.0.0.1:${API_PORT};
         }
 
         include /etc/nginx/endpoints.conf;

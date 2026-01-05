@@ -5,14 +5,14 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'VERBOSE', choices: ['false', 'true'], description: 'Set app logging debug level')
+        choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
     }
 
 
     environment {
 
         // General Configuration
-        DEPLOY = "alpha"
+        DEPLOY                  = 'alpha'
 
         PROJECT                 = 'swarm'                                   // Project namesace ID
         SERVICE                 = 'controller'                              // Microservice identifier

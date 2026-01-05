@@ -7,7 +7,8 @@ RUN apk add --no-cache \
     npm \
     openssl \
     bash \
-    ca-certificates
+    ca-certificates \
+    gettext 
 
 ### Runtime dirs ###
 RUN mkdir -p \

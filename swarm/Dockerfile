@@ -19,6 +19,7 @@ RUN mkdir -p \
 ### Nginx config template ###
 RUN rm -f /etc/nginx/http.d/default.conf
 COPY proxy/conf/nginx.conf.template /etc/nginx/nginx.conf.template
+COPY proxy/conf/endpoints.conf /etc/nginx/endpoints.conf
 COPY proxy/content /usr/share/nginx/html
 
 ### Node app ###

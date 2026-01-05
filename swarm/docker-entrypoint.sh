@@ -106,6 +106,7 @@ envsubst \
   > /etc/nginx/nginx.conf
 
 echo "[NGINX] Config rendered"
+cat /etc/nginx/nginx.conf
 
 nginx -t
 

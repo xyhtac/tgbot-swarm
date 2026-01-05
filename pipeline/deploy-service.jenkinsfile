@@ -18,7 +18,8 @@ pipeline {
         REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
         CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
         HOST_CREDENTIALS        = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
-        DATASTORE_VOLUME        = "/opt/swarm-store"                        // Path to persistent storage
+        DATASTORE_VOLUME        = "/opt/swarm-datastore"                    // Path to persistent storage
+        SWARM_VOLUME            = "/opt/swarm-config"                       // Path to persistent config
 
         // General Configuration
         VERBOSE                 = "1"
@@ -162,6 +163,13 @@ pipeline {
                                 echo "*** Pulling image ${IMAGE_TAG} ***"
                                 docker pull ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
 
+                                echo "*** Prepare named volume ***"
+                                mkdir -p "${SWARM_VOLUME}"
+                                docker volume create --driver local \\
+                                    --opt type=none \\
+                                    --opt device=${SWARM_VOLUME}\\
+                                    --opt o=bind ${PROJECT}-${SERVICE}-config || true
+
                                 echo "*** Stopping old container ***"
                                 docker rm -f ${PROJECT}_${SERVICE} || true
 
@@ -175,6 +183,7 @@ pipeline {
                                     -e API_PORT=${API_PORT} \\
                                     -e PROXY_PORT=${PROXY_PORT} \\
                                     -e NODE_ENV=${DEPLOY} \\
+                                    -v ${PROJECT}-${SERVICE}-config:/app/config \\
                                     -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                     --restart unless-stopped \\
                                     ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
@@ -204,6 +213,8 @@ pipeline {
                         sh """
                             sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${TARGET_HOST} '
 
+                                echo "*** Prepare named volume ***"
+                                mkdir -p "${DATASTORE_VOLUME}"
                                 docker volume create --driver local \\
                                     --opt type=none \\
                                     --opt device=${DATASTORE_VOLUME}\\

@@ -21,6 +21,8 @@ API_PORT="${API_PORT:-8081}"
 
 VERBOSE="${VERBOSE:-false}"
 
+CONFIG_DIR="/app/config"
+
 ############################
 # DEPLOY validation
 ############################
@@ -89,11 +91,31 @@ echo "[INIT] API_PORT=${API_PORT}"
 PROXY_IP=$(hostname -i | awk '{print $1}')
 echo "[INIT] PROXY_IP=${PROXY_IP}"
 
+
+############################
+# Render nginx config
+############################
+cd /etc/nginx
+
+envsubst \
+  '${PROXY_PORT} ${HOSTNAME} ${API_PATH} ${API_PORT}' \
+  < /etc/nginx/nginx.conf.template \
+  > /etc/nginx/nginx.conf
+
+echo "[NGINX] Config rendered"
+
+
+#cat /etc/nginx/nginx.conf
+
+nginx -t
+
+
+
 ############################
 # SSL generation
 ############################
 
-CERT_DIR="/app/certs"
+CERT_DIR="${CONFIG_DIR}/certs"
 mkdir -p "$CERT_DIR"
 
 if [ ! -f "$CERT_DIR/ssl.key" ] || [ ! -f "$CERT_DIR/ssl.pem" ]; then
@@ -116,31 +138,12 @@ ln -sf "$CERT_DIR/ssl.pem" /etc/nginx/ssl.pem
 
 
 
-
-
-############################
-# Render nginx config
-############################
-cd /etc/nginx
-
-envsubst \
-  '${PROXY_PORT} ${HOSTNAME} ${API_PATH} ${API_PORT}' \
-  < /etc/nginx/nginx.conf.template \
-  > /etc/nginx/nginx.conf
-
-echo "[NGINX] Config rendered"
-
-
-#cat /etc/nginx/nginx.conf
-
-nginx -t
-
 ############################
 # Generate application config
 ############################
+
 cd /app
 
-CONFIG_DIR="/app/config"
 export NODE_CONFIG_DIR="${CONFIG_DIR}"
 CONFIG_FILE="${CONFIG_DIR}/local-${DEPLOY}.json"
 
@@ -163,8 +166,8 @@ cat > "${CONFIG_FILE}" <<EOF
     "proxycmd": "/usr/sbin/nginx -s reload",
     "payloads": "config/payloads.json",
     "nginxconfig": "/etc/nginx/endpoints.conf",
-    "certificate": "ssl.pem",
-    "sslkey": "ssl.key"
+    "certificate": "${CERT_DIR}/ssl.pem",
+    "sslkey": "${CERT_DIR}/ssl.key"
   },
   "api": {
     "key": "${API_KEY}"

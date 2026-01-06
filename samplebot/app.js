@@ -10,8 +10,8 @@ const BOT_TOKEN = process.env.BOT_TOKEN;                        // Bot API token
 const HOSTNAME = process.env.HOSTNAME;                          // Fully-qualified domain name for webhook (inlcude port if !=443)
 const SWARM_PATH = process.env.SWARM_PATH;                      // Requested Path for tgbot-swarm
 const SWARM_PORT = parseNumber(process.env.SWARM_PORT);         // Requested Port for tgbot-swarm
-const SSL_KEY  = process.env.SSL_KEY?.trim()  || '/app/ssl.key';
-const SSL_CERT = process.env.SSL_CERT?.trim() || '/app/ssl.pem';
+const SSL_KEY  = process.env.SSL_KEY  || '/app/ssl.key';        // SSL Key local filename with fallback
+const SSL_CERT = process.env.SSL_CERT || '/app/ssl.pem';        // SSL Certificate local filename with fallback
 
 // Verify required values
 if (!BOT_TOKEN || isNaN(SWARM_PORT) ) {

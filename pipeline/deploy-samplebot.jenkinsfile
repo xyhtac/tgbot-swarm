@@ -23,6 +23,7 @@ pipeline {
         PROXY_PORT              = "8443"
         SWARM_RANGE_START       = "3300"
         SWARM_RANGE_END         = "3900"
+        SERVICE_PROTO           = "tcp"
 
         
         // tgbot_swarm request params
@@ -45,51 +46,6 @@ pipeline {
                     def myUuid = UUID.randomUUID().toString()
                     echo "Generated UUID: ${myUuid}"
                     env.SWARM_PATH = myUuid
-                }
-            }
-        }
-        stage('Resolve deployment configuration') {
-            steps {
-                script {
-                    def hosts = [
-                        frontend: "${HOST_NAME}",
-                        backend : "${HOST_NAME}"
-                    ]
-
-                    // Define service placement & ports
-                    def services = [
-                        "samplebot": [
-                            host: "backend",
-                            containerPort: "${SWARM_PORT}",
-                            servicePort:   "${SWARM_PORT}",
-                            protocol: "tcp"
-                        ]
-                    ]
-
-                    // Pick service config
-                    def svc = services[env.SERVICE]
-                    def hostType = svc.host             // frontend or backend selector
-                    def targetHost = hosts[hostType]    // actual HOST
-
-                    // Expose values to downstream steps
-                    env.TARGET_HOST     = targetHost
-                    env.CONTAINER_PORT  = svc.containerPort.toString()
-                    env.SERVICE_PORT    = svc.servicePort.toString()
-                    env.SERVICE_PROTO   = svc.protocol.toString()
-                    env.HOST_TYPE       = hostType
-
-                    echo """
-                    === Deployment Configuration ===
-                    SERVICE        = ${env.SERVICE}
-                    DEPLOY         = ${env.DEPLOY}
-                    TARGET_HOST    = ${env.TARGET_HOST}
-                    HOST_TYPE      = ${env.HOST_TYPE}
-                    CONTAINER_PORT = ${env.CONTAINER_PORT}
-                    SERVICE_PORT   = ${env.SERVICE_PORT}
-                    SERVICE_PROTO  = ${env.SERVICE_PROTO}
-                    HOST_CREDENTIALS = ${HOST_CREDENTIALS}
-                    =================================
-                    """
                 }
             }
         }
@@ -150,7 +106,7 @@ pipeline {
                         // Select free port on host for swarm node deployment
                         def SWARM_PORT = sh(
                             script: """
-                            sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${TARGET_HOST} << 'EOF'
+                            sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${HOST_NAME} << 'EOF'
                             set -e
                             USED_PORTS=\$(ss -lnt | awk 'NR>1 {gsub(/.*:/,"",\$4); print \$4}' | sort -n | uniq)
                             for ((port=${SWARM_RANGE_START}; port<=${SWARM_RANGE_END}; port++)); do
@@ -169,7 +125,7 @@ pipeline {
                         echo "Selected free port: ${SWARM_PORT}"
 
                         sh """
-                            sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${TARGET_HOST} '
+                            sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${HOST_NAME} '
 
                                 echo "*** Logging into registry ***"
                                 echo "${REG_PASS}" | docker login ${CONTAINER_REGISTRY} -u "${REG_USER}" --password-stdin
@@ -192,7 +148,7 @@ pipeline {
                                     -e SSL_KEY='/app/certs/ssl.key' \\
                                     -e SSL_CERT='/app/certs/ssl.pem' \\
                                     -v ${PROJECT}-certificates:/app/certs:ro \\
-                                    -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
+                                    -p ${SWARM_PORT}:${SWARM_PORT}/${env.SERVICE_PROTO}  \\
                                     --restart unless-stopped \\
                                     ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
 

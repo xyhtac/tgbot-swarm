@@ -64,7 +64,7 @@ pipeline {
                     imageTag = baseTag
                     
                     // --- Build Image ---
-                    sh "cd samblebot && docker build -t ${imageTag} -t ${imageLatestTag} ."
+                    sh "cd samplebot && docker build -t ${imageTag} -t ${imageLatestTag} ."
 
                     withCredentials([usernamePassword(
                         credentialsId: "${REGISTRY_CREDENTIALS}",

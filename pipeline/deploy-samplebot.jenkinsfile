@@ -25,8 +25,8 @@ pipeline {
         
         // tgbot_swarm request params
         BOT_TOKEN           = credentials("${PROJECT}-tgtoken")     // TG Token from Secret store
-        HOSTNAME            = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
-        HOST_PORT           = "${HOSTNAME}:${PROXY_PORT}"           // Customize proxy hostname with port if needed
+        HOST_NAME           = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
+
         SWARM_PATH          = 'MYTESTPATH'                          // Replace with UUID later
         SWARM_PORT          = '3301'
         
@@ -149,7 +149,8 @@ pipeline {
 
                                 echo "*** Starting new container ***"
                                 docker run -d --name ${PROJECT}_${SERVICE} \\
-                                    -e HOSTNAME=${HOST_PORT} \\
+                                    -e HOST_NAME=${HOST_NAME} \\
+                                    -e HOST_PORT=${PROXY_PORT} \\
                                     -e BOT_TOKEN=${BOT_TOKEN} \\
                                     -e SWARM_PATH=${SWARM_PATH} \\
                                     -e SWARM_PORT=${SWARM_PORT} \\

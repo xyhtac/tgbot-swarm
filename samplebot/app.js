@@ -74,6 +74,9 @@ bot.on('/start', msg => {
 
 // start service
 bot.start();
+if (verbose) {
+    console.log(`Setting up server on port ${WARM_PORT}`);
+}
 
 // get array of filtered strings from the active bot event list
 var botEventList = Array.from( bot.eventList.keys() ).map( (x) => { 

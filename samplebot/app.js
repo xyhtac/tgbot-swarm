@@ -10,6 +10,8 @@ const BOT_TOKEN = process.env.BOT_TOKEN;                        // Bot API token
 const HOSTNAME = process.env.HOSTNAME;                          // Fully-qualified domain name for webhook (inlcude port if !=443)
 const SWARM_PATH = process.env.SWARM_PATH;                      // Requested Path for tgbot-swarm
 const SWARM_PORT = parseNumber(process.env.SWARM_PORT);         // Requested Port for tgbot-swarm
+const SSL_KEY  = process.env.SSL_KEY?.trim()  || '/app/ssl.key';
+const SSL_CERT = process.env.SSL_CERT?.trim() || '/app/ssl.pem';
 
 // Verify required values
 if (!BOT_TOKEN || isNaN(SWARM_PORT) ) {
@@ -42,8 +44,8 @@ const WEBHOOK_URL = `https://${HOSTNAME}/${SWARM_PATH}`;
 const bot = new TeleBot({
     token: BOT_TOKEN,    // Required. Telegram Bot API token.
     webhook: {                              // Optional. Use webhook instead of polling.
-        // key: config.get('telegram.key'),    // Optional. Private key for server.
-        // cert: config.get('telegram.cert'),  // Optional. Public key.
+        key: SSL_KEY,                       // Optional. Private key for server.
+        cert: SSL_CERT,                     // Optional. Public key.
         url: WEBHOOK_URL,                   // HTTPS url to send updates to.
         host: "0.0.0.0",                    // Webhook server host.
 		port: SWARM_PORT,                   // Server port.

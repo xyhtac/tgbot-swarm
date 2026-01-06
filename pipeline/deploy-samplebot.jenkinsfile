@@ -155,6 +155,9 @@ pipeline {
                                     -e SWARM_PORT=${SWARM_PORT} \\
                                     -e VERBOSE=${VERBOSE} \\
                                     -e NODE_ENV=${DEPLOY} \\
+                                    -e SSL_KEY='/app/certs/ssl.key' \\
+                                    -e SSL_CERT='/app/certs/ssl.pem' \\
+                                    -v ${PROJECT}-certificates:/app/certs:ro \\
                                     -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                     --restart unless-stopped \\
                                     ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}

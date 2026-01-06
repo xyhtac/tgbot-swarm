@@ -167,7 +167,7 @@ pipeline {
                                 docker volume create --driver local \\
                                     --opt type=none \\
                                     --opt device=${SWARM_VOLUME}\\
-                                    --opt o=bind ${PROJECT}-${SERVICE}-config || true
+                                    --opt o=bind ${PROJECT}-certificates || true
 
                                 echo "*** Stopping old container ***"
                                 docker rm -f ${PROJECT}_${SERVICE} || true
@@ -175,7 +175,7 @@ pipeline {
                                 echo "*** Starting new container ***"
                                 docker run -d --name ${PROJECT}_${SERVICE} \\
                                     -v /var/run/docker.sock:/tmp/docker.sock:ro \\
-                                    -v ${PROJECT}-${SERVICE}-config:/nginx \\
+                                    -v ${PROJECT}-certificates:/nginx/certs \\
                                     -e HOSTNAME=${HOSTNAME} \\
                                     -e VERBOSE=${VERBOSE} \\
                                     -e DEPLOY=${DEPLOY} \\

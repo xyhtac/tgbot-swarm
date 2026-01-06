@@ -97,8 +97,8 @@ else
   echo "[INIT] Using existing SSL certificates"
 fi
 
-chmod 600 "$CERT_DIR/ssl.key"
-chmod 644 "$CERT_DIR/ssl.pem"
+chmod 666 "$CERT_DIR/ssl.key"
+chmod 666 "$CERT_DIR/ssl.pem"
 
 
 

@@ -73,7 +73,7 @@ bot.on('/start', msg => {
 
 // start service
 bot.start();
-console.log(`Setting up server on port ${WARM_PORT}`)
+console.log(`Setting up server on port ${SWARM_PORT}`)
 if  ( verbose ) {  };
 
 // get array of filtered strings from the active bot event list

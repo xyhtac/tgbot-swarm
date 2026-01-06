@@ -104,7 +104,7 @@ pipeline {
                     ]) {
 
                         // Select free port on host for swarm node deployment
-                        def SWARM_PORT = sh(
+                        def raw = sh(
                             script: """
                             sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${HOST_NAME} << 'EOF'
                             set -e

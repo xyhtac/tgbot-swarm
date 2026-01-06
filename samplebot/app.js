@@ -30,11 +30,10 @@ const fetch = require('node-fetch');
 
 // load configurations
 // binary switch - log non-error information to console
-if ( parseBool(process.env.VERBOSE) ) {
-    const verbose = parseBool(process.env.VERBOSE, false);
-} else {
-    const verbose = config.get('defaults.verbose');
-}
+let verbose =
+    process.env.VERBOSE !== undefined
+        ? parseBool(process.env.VERBOSE, false)
+        : (config.has('defaults.verbose') ? config.get('defaults.verbose') : false);
 
 // Compose webhook URL
 const WEBHOOK_URL = `https://${HOSTNAME}/${SWARM_PATH}`;
@@ -74,9 +73,7 @@ bot.on('/start', msg => {
 
 // start service
 bot.start();
-if (verbose) {
-    console.log(`Setting up server on port ${WARM_PORT}`);
-}
+if  ( verbose ) { console.log(`Setting up server on port ${WARM_PORT}`) };
 
 // get array of filtered strings from the active bot event list
 var botEventList = Array.from( bot.eventList.keys() ).map( (x) => { 

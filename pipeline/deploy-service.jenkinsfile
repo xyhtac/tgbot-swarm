@@ -175,7 +175,7 @@ pipeline {
                                 echo "*** Starting new container ***"
                                 docker run -d --name ${PROJECT}_${SERVICE} \\
                                     -v /var/run/docker.sock:/tmp/docker.sock:ro \\
-                                    -v ${PROJECT}-certificates:/nginx/certs \\
+                                    -v ${PROJECT}-certificates:/etc/nginx/certs \\
                                     -e HOSTNAME=${HOSTNAME} \\
                                     -e VERBOSE=${VERBOSE} \\
                                     -e DEPLOY=${DEPLOY} \\

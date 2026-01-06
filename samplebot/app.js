@@ -46,7 +46,7 @@ const bot = new TeleBot({
         key: SSL_KEY,                       // Optional. Private key for server.
         cert: SSL_CERT,                     // Optional. Public key.
         url: WEBHOOK_URL,                   // HTTPS url to send updates to.
-        host: '172.17.0.9',                    // Webhook server host.
+        host: '0.0.0.0',                    // Webhook server host.
 		port: SWARM_PORT,                   // Server port.
         maxConnections: 30                  //config.get('telegram.maxConnections') // Optional. Maximum allowed number of simultaneous HTTPS connections to the webhook for update delivery
     },

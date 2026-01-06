@@ -42,8 +42,8 @@ pipeline {
             steps {
                 script {
                     def hosts = [
-                        frontend: "${HOSTNAME}",
-                        backend : "${HOSTNAME}"
+                        frontend: "${HOST_NAME}",
+                        backend : "${HOST_NAME}"
                     ]
 
                     // Define service placement & ports

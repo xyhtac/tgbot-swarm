@@ -47,9 +47,9 @@ const bot = new TeleBot({
         key: SSL_KEY,                       // Optional. Private key for server.
         cert: SSL_CERT,                     // Optional. Public key.
         url: WEBHOOK_URL,                   // HTTPS url to send updates to.
-        host: "0.0.0.0",                    // Webhook server host.
+        host: '0.0.0.0',                    // Webhook server host.
 		port: SWARM_PORT,                   // Server port.
-        maxConnections: config.get('telegram.maxConnections') // Optional. Maximum allowed number of simultaneous HTTPS connections to the webhook for update delivery
+        maxConnections: 30                  //config.get('telegram.maxConnections') // Optional. Maximum allowed number of simultaneous HTTPS connections to the webhook for update delivery
     },
     allowedUpdates: [], // Optional. List the types of updates you want your bot to receive. Specify an empty list to receive all updates.
     usePlugins: ['askUser', 'commandButton', 'namedButtons'], // Optional. Use user plugins from pluginFolder.

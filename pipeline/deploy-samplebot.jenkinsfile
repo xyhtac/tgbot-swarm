@@ -106,11 +106,7 @@ pipeline {
                         // Select free port on host for swarm node deployment
                         def SWARM_PORT = sh(
                             script: """
-                            sshpass -p '${HOST_PASS}' ssh ssh   -T \ 
-                                                                -o LogLevel=ERROR \ 
-                                                                -o StrictHostKeyChecking=no \ 
-                                                                -o UserKnownHostsFile=/dev/null \ 
-                                                                -o StrictHostKeyChecking=no ${HOST_USER}@${HOST_NAME} << 'EOF'
+                            sshpass -p '${HOST_PASS}' ssh ssh -T -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ${HOST_USER}@${HOST_NAME} << 'EOF'
                             set -e
                             USED_PORTS=\$(ss -lnt | awk 'NR>1 {gsub(/.*:/,"",\$4); print \$4}' | sort -n | uniq)
                             for ((port=${SWARM_RANGE_START}; port<=${SWARM_RANGE_END}; port++)); do

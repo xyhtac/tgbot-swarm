@@ -40,7 +40,7 @@ location /${swarmPath}/ {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 
-    proxy_pass http://${info.ip}:${info.port}/;
+    proxy_pass http://${info.ip}:${info.port}/${swarmPath}/;
 }
 `).join('\n');
 }

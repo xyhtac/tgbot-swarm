@@ -1,0 +1,171 @@
+// Build single microservice with a defined environment settings
+
+pipeline {
+
+    agent any
+
+    parameters {
+        choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
+        choice(name: 'IMAGE_TAG', choices: ['latest', 'select'], description: 'Deploy latest build or select build on registry')
+    }
+    
+
+    environment {
+
+        PROJECT                 = 'swarm'                                   // Project namesace ID
+        SERVICE                 = 'samplebot'                               // Microservice ID
+        REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
+        CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
+        HOST_CREDENTIALS        = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
+
+        // General Configuration
+        VERBOSE                 = "1"
+        PROXY_PORT              = "8443"
+
+        
+        // tgbot_swarm request params
+        BOT_TOKEN           = credentials("${PROJECT}-tgtoken")     // TG Token from Secret store
+        HOSTNAME            = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
+        HOST_PORT           = "${HOSTNAME}:${PROXY_PORT}"           // Customize proxy hostname with port if needed
+        SWARM_PATH          = 'MYTESTPATH'                          // Replace with UUID later
+        SWARM_PORT          = '3301'
+        
+        REPOSITORY  = "${PROJECT}-${SERVICE}-${DEPLOY}"
+    }
+
+
+   
+    stages {
+                
+       
+        stage('Resolve deployment configuration') {
+            steps {
+                script {
+                    def hosts = [
+                        frontend: "${HOSTNAME}",
+                        backend : "${HOSTNAME}"
+                    ]
+
+                    // Define service placement & ports
+                    def services = [
+                        "samplebot": [
+                            host: "backend",
+                            containerPort: "${SWARM_PORT}",
+                            servicePort:   "${SWARM_PORT}",
+                            protocol: "tcp"
+                        ]
+                    ]
+
+                    // Pick service config
+                    def svc = services[env.SERVICE]
+                    def hostType = svc.host             // frontend or backend selector
+                    def targetHost = hosts[hostType]    // actual HOST
+
+                    // Expose values to downstream steps
+                    env.TARGET_HOST     = targetHost
+                    env.CONTAINER_PORT  = svc.containerPort.toString()
+                    env.SERVICE_PORT    = svc.servicePort.toString()
+                    env.SERVICE_PROTO   = svc.protocol.toString()
+                    env.HOST_TYPE       = hostType
+
+                    echo """
+                    === Deployment Configuration ===
+                    SERVICE        = ${env.SERVICE}
+                    DEPLOY         = ${env.DEPLOY}
+                    TARGET_HOST    = ${env.TARGET_HOST}
+                    HOST_TYPE      = ${env.HOST_TYPE}
+                    CONTAINER_PORT = ${env.CONTAINER_PORT}
+                    SERVICE_PORT   = ${env.SERVICE_PORT}
+                    SERVICE_PROTO  = ${env.SERVICE_PROTO}
+                    HOST_CREDENTIALS = ${HOST_CREDENTIALS}
+                    =================================
+                    """
+                }
+            }
+        }
+
+        stage('Select Image for node:samplebot') {
+            steps {
+                script {
+                    if ( IMAGE_TAG != "latest" ) {
+                        // if BUILD is undefined or has value 'select', get list of tags 
+                        // from repository and ask user to select one.
+                        def registry = "https://${CONTAINER_REGISTRY}"
+
+                        withCredentials([usernamePassword(
+                            credentialsId: "${REGISTRY_CREDENTIALS}",
+                            usernameVariable: 'REG_USER',
+                            passwordVariable: 'REG_PASS'
+                        )]) {
+                            def json = sh(
+                                script: """
+                                    curl -s -u "$REG_USER:$REG_PASS" ${registry}/v2/${REPOSITORY}/tags/list
+                                """,
+                                returnStdout: true
+                            )
+
+                            def tags = new groovy.json.JsonSlurper().parseText(json).tags
+                            if (!tags) tags = ["no-tags-found"]
+
+                            // User picks a tag
+                            env.IMAGE_TAG = input(
+                                id: "TagSelector",
+                                message: "Select image tag for deployment",
+                                parameters: [
+                                    choice(name: 'IMAGE_TAG', choices: tags.join('\n'))
+                                ]
+                            )
+                        }
+                    }
+                    echo "Selected image: ${env.IMAGE_TAG}"
+                }
+            }
+        }
+        stage('Deploy to remote host node:samplebot') {
+            steps {
+                script {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: "${REGISTRY_CREDENTIALS}",
+                            usernameVariable: 'REG_USER',
+                            passwordVariable: 'REG_PASS'
+                        ),
+                        usernamePassword(
+                            credentialsId: "${HOST_CREDENTIALS}",
+                            usernameVariable: 'HOST_USER',
+                            passwordVariable: 'HOST_PASS'
+                        )
+                    ]) {
+                        sh """
+                            sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${TARGET_HOST} '
+                                echo "*** Logging into registry ***"
+                                echo "${REG_PASS}" | docker login ${CONTAINER_REGISTRY} -u "${REG_USER}" --password-stdin
+
+                                echo "*** Pulling image ${IMAGE_TAG} ***"
+                                docker pull ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
+
+                                echo "*** Stopping old container ***"
+                                docker rm -f ${PROJECT}_${SERVICE} || true
+
+                                echo "*** Starting new container ***"
+                                docker run -d --name ${PROJECT}_${SERVICE} \\
+                                    -e HOSTNAME=${HOST_PORT} \\
+                                    -e BOT_TOKEN=${BOT_TOKEN} \\
+                                    -e SWARM_PATH=${SWARM_PATH} \\
+                                    -e SWARM_PORT=${SWARM_PORT} \\
+                                    -e VERBOSE=${VERBOSE} \\
+                                    -e NODE_ENV=${DEPLOY} \\
+                                    -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
+                                    --restart unless-stopped \\
+                                    ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
+
+                                echo "*** Deployment complete ***"
+                            '
+                        """
+                    }
+                }
+            }
+        }
+
+    }
+}

@@ -1,4 +1,4 @@
-// Build controller microservice and push it to registry
+// Build samplebot microservice and push it to registry
 
 pipeline {
 
@@ -13,13 +13,12 @@ pipeline {
 
         // General Configuration
         DEPLOY                  = 'alpha'
-
         PROJECT                 = 'swarm'                                   // Project namesace ID
-        SERVICE                 = 'controller'                              // Microservice identifier
+        SERVICE                 = 'samplebot'                               // Microservice identifier
+
         REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
         CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
         
-
     }
     
 
@@ -65,7 +64,7 @@ pipeline {
                     imageTag = baseTag
                     
                     // --- Build Image ---
-                    sh "cd swarm && docker build -t ${imageTag} -t ${imageLatestTag} ."
+                    sh "cd samblebot && docker build -t ${imageTag} -t ${imageLatestTag} ."
 
                     withCredentials([usernamePassword(
                         credentialsId: "${REGISTRY_CREDENTIALS}",

@@ -1,13 +1,8 @@
 #!/usr/bin/env node
 
-/**
- * SWARM Nginx Controller
- * - Observes other Docker containers via Docker socket
- * - Reads SWARM_PATH and SWARM_PORT env vars
- * - Generates nginx config dynamically
- * - Reloads nginx safely
- * - TLS termination is handled by nginx
- */
+// https://github.com/xyhtac/tgbot-swarm
+// tgbot-swarm > swarm > app.js
+
 
 const Docker = require('dockerode');
 const fs = require('fs');

@@ -21,14 +21,16 @@ pipeline {
         // General Configuration
         VERBOSE                 = "1"
         PROXY_PORT              = "8443"
+        SWARM_RANGE_START       = "3300"
+        SWARM_RANGE_END         = "3900"
 
         
         // tgbot_swarm request params
         BOT_TOKEN           = credentials("${PROJECT}-tgtoken")     // TG Token from Secret store
         HOST_NAME           = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
 
-        SWARM_PATH          = 'MYTESTPATH'                          // Replace with UUID later
-        SWARM_PORT          = '3301'
+        // SWARM_PATH          = 'MYTESTPATH'                          // Replace with UUID later
+        // SWARM_PORT          = '3301'
         
         REPOSITORY  = "${PROJECT}-${SERVICE}-${DEPLOY}"
     }
@@ -37,7 +39,15 @@ pipeline {
    
     stages {
                 
-       
+        stage('Generate UUID for Path') {
+            steps {
+                script {
+                    def myUuid = UUID.randomUUID().toString()
+                    echo "Generated UUID: ${myUuid}"
+                    env.SWARM_PATH = myUuid
+                }
+            }
+        }
         stage('Resolve deployment configuration') {
             steps {
                 script {
@@ -136,8 +146,31 @@ pipeline {
                             passwordVariable: 'HOST_PASS'
                         )
                     ]) {
+
+                        // Select free port on host for swarm node deployment
+                        def SWARM_PORT = sh(
+                            script: """
+                            sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${TARGET_HOST} << 'EOF'
+                            set -e
+                            USED_PORTS=\$(ss -lnt | awk 'NR>1 {gsub(/.*:/,"",\$4); print \$4}' | sort -n | uniq)
+                            for ((port=${SWARM_RANGE_START}; port<=${SWARM_RANGE_END}; port++)); do
+                                if ! echo "\$USED_PORTS" | grep -qx "\$port"; then
+                                    echo "\$port"
+                                    exit 0
+                                fi
+                            done
+                            echo "No free port found" >&2
+                            exit 1
+                            EOF
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        echo "Selected free port: ${SWARM_PORT}"
+
                         sh """
                             sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${TARGET_HOST} '
+
                                 echo "*** Logging into registry ***"
                                 echo "${REG_PASS}" | docker login ${CONTAINER_REGISTRY} -u "${REG_USER}" --password-stdin
 

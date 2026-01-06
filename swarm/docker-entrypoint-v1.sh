@@ -7,16 +7,21 @@ echo "[INIT] Starting container"
 # Required ENV
 ############################
 : "${HOSTNAME:?HOSTNAME is required}"
-
+: "${API_KEY:?API_KEY is required}"
 
 ############################
 # Optional ENV + defaults
 ############################
 DEPLOY="${DEPLOY:-prod}"
-PROJECT="${PROJECT:-swarm}"
+PROJECT="${PROJECT:-MyProject}"
+
+API_PATH="${API_PATH:-/controller}"
 PROXY_PORT="${PROXY_PORT:-443}"
+API_PORT="${API_PORT:-8081}"
+
 VERBOSE="${VERBOSE:-false}"
 
+CONFIG_DIR="/app/config"
 
 ############################
 # DEPLOY validation
@@ -48,11 +53,18 @@ case "${VERBOSE,,}" in
     ;;
 esac
 
+############################
+# API_PATH validation
+############################
+if [[ ! "${API_PATH}" =~ ^/ ]]; then
+  echo "[ERROR] API_PATH must start with '/' (got '${API_PATH}')"
+  exit 1
+fi
 
 ############################
 # Port validation
 ############################
-for port in "${PROXY_PORT}"; do
+for port in "${PROXY_PORT}" "${API_PORT}"; do
   if ! [[ "${port}" =~ ^[0-9]+$ ]] || [ "${port}" -lt 1 ] || [ "${port}" -gt 65535 ]; then
     echo "[ERROR] Invalid port value: ${port}"
     exit 1
@@ -60,7 +72,7 @@ for port in "${PROXY_PORT}"; do
 done
 
 # Export for envsubst
-export PROXY_PORT HOSTNAME NODE_ENV
+export API_PORT PROXY_PORT API_PATH HOSTNAME NODE_ENV
 
 
 
@@ -69,7 +81,9 @@ export PROXY_PORT HOSTNAME NODE_ENV
 ############################
 echo "[INIT] DEPLOY=${DEPLOY}"
 echo "[INIT] VERBOSE=${VERBOSE}"
+echo "[INIT] API_PATH=${API_PATH}"
 echo "[INIT] PROXY_PORT=${PROXY_PORT}"
+echo "[INIT] API_PORT=${API_PORT}"
 
 ############################
 # Detect container IP
@@ -82,7 +96,7 @@ echo "[INIT] PROXY_IP=${PROXY_IP}"
 # SSL generation
 ############################
 
-CERT_DIR="/etc/nginx/certs"
+CERT_DIR="${CONFIG_DIR}/certs"
 mkdir -p "$CERT_DIR"
 
 if [ ! -f "$CERT_DIR/ssl.key" ] || [ ! -f "$CERT_DIR/ssl.pem" ]; then
@@ -100,6 +114,8 @@ fi
 chmod 600 "$CERT_DIR/ssl.key"
 chmod 644 "$CERT_DIR/ssl.pem"
 
+ln -sf "$CERT_DIR/ssl.key" /etc/nginx/ssl.key
+ln -sf "$CERT_DIR/ssl.pem" /etc/nginx/ssl.pem
 
 
 ############################
@@ -108,18 +124,56 @@ chmod 644 "$CERT_DIR/ssl.pem"
 cd /etc/nginx
 
 envsubst \
-  '${PROXY_PORT} ${HOSTNAME}' \
+  '${PROXY_PORT} ${HOSTNAME} ${API_PATH} ${API_PORT}' \
   < /etc/nginx/nginx.conf.template \
   > /etc/nginx/nginx.conf
 
 echo "[NGINX] Config rendered"
 
 
-cat /etc/nginx/nginx.conf
+#cat /etc/nginx/nginx.conf
 
 nginx -t
 
 
+############################
+# Generate application config
+############################
+
+cd /app
+
+export NODE_CONFIG_DIR="${CONFIG_DIR}"
+CONFIG_FILE="${CONFIG_DIR}/local-${DEPLOY}.json"
+
+mkdir -p "${CONFIG_DIR}"
+
+cat > "${CONFIG_FILE}" <<EOF
+{
+  "controller": {
+    "host": "127.0.0.1",
+    "port": "8081"
+  },
+  "proxy": {
+    "host": "${PROXY_IP}",
+    "port": "${PROXY_PORT}",
+    "fqdn": "${HOSTNAME}"
+  },
+  "defaults": {
+    "verbose": ${VERBOSE},
+    "portrange": [3002, 4000],
+    "proxycmd": "/usr/sbin/nginx -s reload",
+    "payloads": "config/payloads.json",
+    "nginxconfig": "/etc/nginx/conf.d/endpoints.conf",
+    "certificate": "${CERT_DIR}/ssl.pem",
+    "sslkey": "${CERT_DIR}/ssl.key"
+  },
+  "api": {
+    "key": "${API_KEY}"
+  }
+}
+EOF
+
+echo "[INIT] App config written: ${CONFIG_FILE}"
 
 ############################
 # Start services

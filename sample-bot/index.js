@@ -20,8 +20,8 @@ const verbose = config.get('defaults.verbose');
 const bot = new TeleBot({
     token: config.get('telegram.token'),    // Required. Telegram Bot API token.
     webhook: {                              // Optional. Use webhook instead of polling.
-        key: config.get('telegram.key'),    // Optional. Private key for server.
-        cert: config.get('telegram.cert'),  // Optional. Public key.
+        // key: config.get('telegram.key'),    // Optional. Private key for server.
+        // cert: config.get('telegram.cert'),  // Optional. Public key.
         url: config.get('telegram.url'),    // HTTPS url to send updates to.
         host: config.get('telegram.host'),  // Webhook server host.
 		port: config.get('telegram.port'),  // Server port.

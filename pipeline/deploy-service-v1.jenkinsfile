@@ -24,14 +24,15 @@ pipeline {
         // General Configuration
         VERBOSE                 = "1"
         PROXY_PORT              = "8443"
+        API_PORT                = "8081"
+        API_PATH                = "/controller"
 
         // DATASTRORE service params
         DB_VOLUME               = "datastore"
         DB_PORT                 = "3306"
         
         // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
-        //API_KEY             = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store
-
+        API_KEY             = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store
         DB_PASS             = credentials("${PROJECT}-dbpass")      // Database password from Jenkins secrets store
         HOSTNAME            = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
         
@@ -174,13 +175,16 @@ pipeline {
 
                                 echo "*** Starting new container ***"
                                 docker run -d --name ${PROJECT}_${SERVICE} \\
-                                    -v /var/run/docker.sock:/tmp/docker.sock:ro \\
-                                    -v ${PROJECT}-${SERVICE}-config:/nginx \\
+                                    -v /var/run/docker.sock:/tmp/docker.sock:ro
                                     -e HOSTNAME=${HOSTNAME} \\
+                                    -e API_KEY=${API_KEY} \\
                                     -e VERBOSE=${VERBOSE} \\
                                     -e DEPLOY=${DEPLOY} \\
+                                    -e API_PATH=${API_PATH} \\
+                                    -e API_PORT=${API_PORT} \\
                                     -e PROXY_PORT=${PROXY_PORT} \\
                                     -e NODE_ENV=${DEPLOY} \\
+                                    -v ${PROJECT}-${SERVICE}-config:/app/config \\
                                     -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                     --restart unless-stopped \\
                                     ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}

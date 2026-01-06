@@ -19,7 +19,7 @@ pipeline {
         CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
         HOST_CREDENTIALS        = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
         DATASTORE_VOLUME        = "/opt/swarm-datastore"                    // Path to persistent storage
-        SWARM_VOLUME            = "/opt/swarm-config"                       // Path to persistent config
+        SWARM_VOLUME            = "/opt/swarm-certificates"                 // Path to persistent config
 
         // General Configuration
         VERBOSE                 = "1"

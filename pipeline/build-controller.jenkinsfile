@@ -21,7 +21,7 @@ pipeline {
         CONTAINER_REGISTRY   = ''
 
         // REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
-        // CONTAINER_REGISTRY      = credentials('container-registry-url')     // Local Container Registry to put docker image
+        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')     // Local Container Registry to put docker image
         
     }
     
@@ -56,14 +56,14 @@ pipeline {
             steps {
                 script {
                     if (REGISTRY_TYPE == 'private') {
-                        env.REGISTRY_CREDENTIALS = 'registry-creds'
-                        env.CONTAINER_REGISTRY   = credentials('container-registry-url')
+                        REGISTRY_CREDENTIALS = 'registry-creds'
+                        CONTAINER_REGISTRY   = PRIVATE_CONTAINER_REGISTRY
                     } else {
-                        env.REGISTRY_CREDENTIALS = 'dockerhub-creds'
-                        env.CONTAINER_REGISTRY   = 'index.docker.io'
+                        REGISTRY_CREDENTIALS = 'dockerhub-creds'
+                        CONTAINER_REGISTRY   = 'index.docker.io'
                     }
-                    echo "Registry type: ${params.REGISTRY_TYPE}"
-                    echo "Container registry: ${env.CONTAINER_REGISTRY}"
+                    echo "Registry type: ${REGISTRY_TYPE}"
+                    echo "Container registry: ${CONTAINER_REGISTRY}"
                 }
             }
         }

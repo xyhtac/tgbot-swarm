@@ -72,11 +72,7 @@ pipeline {
 
             steps {
                 script {
-                    if (SERVICE) {
-                        def repo = "${PROJECT}-${SERVICE}"
-                    } else {
-                        def repo = "${PROJECT}"
-                    }
+                    def repo = "${PROJECT}"
                     def artifact_file = "tags_${PROJECT}_${REGISTRY_TYPE}.txt"
                     def tmp_file = "${artifact_file}.tmp"
 

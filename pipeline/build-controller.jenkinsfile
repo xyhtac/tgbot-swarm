@@ -55,14 +55,12 @@ pipeline {
         stage('Resolve registry') {
             steps {
                 script {
-                    if (params.REGISTRY_TYPE == 'private') {
+                    if (REGISTRY_TYPE == 'private') {
                         env.REGISTRY_CREDENTIALS = 'registry-creds'
                         env.CONTAINER_REGISTRY   = credentials('container-registry-url')
-                        env.TAGPREFIX = 'private'
                     } else {
                         env.REGISTRY_CREDENTIALS = 'dockerhub-creds'
                         env.CONTAINER_REGISTRY   = 'index.docker.io'
-                        env.TAGPREFIX = 'public'
                     }
                     echo "Registry type: ${params.REGISTRY_TYPE}"
                     echo "Container registry: ${env.CONTAINER_REGISTRY}"
@@ -75,7 +73,7 @@ pipeline {
             steps {
                 script {
                     def repo = "${PROJECT}-${SERVICE}-${DEPLOY}"
-                    def artifact_file = "tags_${PROJECT}_${TAGPREFIX}.txt"
+                    def artifact_file = "tags_${PROJECT}_${REGISTRY_TYPE}.txt"
                     def tmp_file = "${artifact_file}.tmp"
 
                     def baseTag = "${CONTAINER_REGISTRY}/${repo}:${VERSION}-build${BUILD_NUMBER}"

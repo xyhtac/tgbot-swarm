@@ -13,13 +13,12 @@ pipeline {
 
         // General Configuration
         DEPLOY                  = 'alpha'
-
         PROJECT                 = 'swarm'                                   // Project namesace ID
         SERVICE                 = 'controller'                              // Microservice identifier
+
         REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
         CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
         
-
     }
     
 

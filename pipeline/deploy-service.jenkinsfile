@@ -13,7 +13,6 @@ pipeline {
 
     environment {
 
-        // DEPLOY                  = 'alpha'                                   // build branch
         PROJECT                 = 'swarm'                                   // Project namesace ID
         REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
         CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
@@ -30,8 +29,6 @@ pipeline {
         DB_PORT                 = "3306"
         
         // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
-        //API_KEY             = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store
-
         DB_PASS             = credentials("${PROJECT}-dbpass")      // Database password from Jenkins secrets store
         HOSTNAME            = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
         
@@ -41,7 +38,6 @@ pipeline {
 
    
     stages {
-                
        
         stage('Resolve deployment configuration') {
             steps {

@@ -30,9 +30,6 @@ pipeline {
         BOT_TOKEN           = credentials("${PROJECT}-tgtoken")     // TG Token from Secret store
         HOST_NAME           = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
 
-        // SWARM_PATH          = 'MYTESTPATH'                          // Replace with UUID later
-        // SWARM_PORT          = '3301'
-        
         REPOSITORY  = "${PROJECT}-${SERVICE}-${DEPLOY}"
     }
 
@@ -148,8 +145,6 @@ pipeline {
                                     -e SWARM_PORT=${SWARM_PORT} \\
                                     -e VERBOSE=${VERBOSE} \\
                                     -e NODE_ENV=${DEPLOY} \\
-                                    -e SSL_KEY='/app/certs/ssl.key' \\
-                                    -e SSL_CERT='/app/certs/ssl.pem' \\
                                     -v ${PROJECT}-certificates:/app/certs:ro \\
                                     -p ${SWARM_PORT}:${SWARM_PORT}/${env.SERVICE_PROTO}  \\
                                     --restart unless-stopped \\

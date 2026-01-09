@@ -58,9 +58,11 @@ pipeline {
                     if (params.REGISTRY_TYPE == 'private') {
                         env.REGISTRY_CREDENTIALS = 'registry-creds'
                         env.CONTAINER_REGISTRY   = credentials('container-registry-url')
+                        env.TAGPREFIX = 'private'
                     } else {
                         env.REGISTRY_CREDENTIALS = 'dockerhub-creds'
-                        env.CONTAINER_REGISTRY   = 'https://index.docker.io/v1/'
+                        env.CONTAINER_REGISTRY   = 'index.docker.io'
+                        env.TAGPREFIX = 'public'
                     }
                     echo "Registry type: ${params.REGISTRY_TYPE}"
                     echo "Container registry: ${env.CONTAINER_REGISTRY}"

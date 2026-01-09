@@ -8,34 +8,34 @@ tgbot-swarm sets up a container running nginx and nodejs controller that generat
 
 Step 1. Create a named volume for certificates
 ```
-mkdir -p "/opt/swarm-certificate"
-docker volume create --driver local \\
-    --opt type=none \\
-    --opt device=/opt/swarm-certificate\\
+mkdir -p "/opt/swarm-certificate" \
+docker volume create --driver local \
+    --opt type=none \
+    --opt device=/opt/swarm-certificate \
     --opt o=bind swarm-certificates
 ```
 
 Step 2. Spin up a controller
 ```
-docker run -d --name tgbot-swarm-controller \\
-    -v /var/run/docker.sock:/tmp/docker.sock:ro \\
-    -v swarm-certificates:/etc/nginx/certs \\
-    -e HOSTNAME=foo.bar.com \\
-    -p 443:443/tcp  \\
-    --restart unless-stopped \\
+docker run -d --name tgbot-swarm-controller \
+    -v /var/run/docker.sock:/tmp/docker.sock:ro \
+    -v swarm-certificates:/etc/nginx/certs \
+    -e HOSTNAME=foo.bar.com \
+    -p 443:443/tcp  \
+    --restart unless-stopped \
 tgbot-swarm/tgbot-swarm-controller:2.0
 ```
 
 
 Step 3. Spin up example bot
 ```
-docker run -d --name ${PROJECT}_${SERVICE} \\
-    -e BOT_TOKEN=[SECRET_BOT_TOKEN] \\
-    -e SWARM_PATH=examplebot \\
-    -e SWARM_PORT=3300 \\
-    -v ${PROJECT}-certificates:/app/certs:ro \\
-    -p 3300:3300/tcp  \\
-    --restart unless-stopped \\
+docker run -d --name tgbot-swarm-samplebot \
+    -e BOT_TOKEN=[SECRET_BOT_TOKEN] \
+    -e SWARM_PATH=examplebot \
+    -e SWARM_PORT=3300 \
+    -v ${PROJECT}-certificates:/app/certs:ro \
+    -p 3300:3300/tcp  \
+    --restart unless-stopped \
 tgbot-swarm/tgbot-swarm-samplebot:2.0
 ```
 

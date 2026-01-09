@@ -72,7 +72,7 @@ pipeline {
 
             steps {
                 script {
-                    def repo = "${PROJECT}"
+                    def repo = "xyhtac/${PROJECT}"
                     def artifact_file = "tags_${PROJECT}_${REGISTRY_TYPE}.txt"
                     def tmp_file = "${artifact_file}.tmp"
 

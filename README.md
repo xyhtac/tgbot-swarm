@@ -33,7 +33,7 @@ docker run -d --name tgbot-swarm-samplebot \
     -e BOT_TOKEN=[SECRET_BOT_TOKEN] \
     -e SWARM_PATH=examplebot \
     -e SWARM_PORT=3300 \
-    -v ${PROJECT}-certificates:/app/certs:ro \
+    -v swarm-certificates:/app/certs:ro \
     -p 3300:3300/tcp  \
     --restart unless-stopped \
 tgbot-swarm/tgbot-swarm-samplebot:2.0

@@ -61,7 +61,7 @@ pipeline {
                         CONTAINER_REGISTRY   = PRIVATE_CONTAINER_REGISTRY
                     } else {
                         REGISTRY_CREDENTIALS = 'dockerhub-creds'
-                        CONTAINER_REGISTRY   = "${OWNER}/"
+                        CONTAINER_REGISTRY   = "${OWNER}"
                     }
                     echo "Registry type: ${REGISTRY_TYPE}"
                     echo "Container registry: ${CONTAINER_REGISTRY}"

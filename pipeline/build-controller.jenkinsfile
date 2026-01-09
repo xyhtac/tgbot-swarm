@@ -15,6 +15,7 @@ pipeline {
         // General Configuration
         // DEPLOY                  = 'alpha'
         PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
+        OWNER                   = 'xyhtac'
         // SERVICE                 = 'controller'                              // Microservice identifier
 
         //REGISTRY_CREDENTIALS = ''
@@ -72,7 +73,7 @@ pipeline {
 
             steps {
                 script {
-                    def repo = "xyhtac/${PROJECT}"
+                    def repo = "${OWNER}/${PROJECT}"
                     def artifact_file = "tags_${PROJECT}_${REGISTRY_TYPE}.txt"
                     def tmp_file = "${artifact_file}.tmp"
 

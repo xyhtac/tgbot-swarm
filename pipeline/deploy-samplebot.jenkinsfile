@@ -15,6 +15,7 @@ pipeline {
 
         PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
         SERVICE                 = 'samplebot'                               // Microservice ID
+        OWNER                   = 'xyhtac'                                  // Change if forked
         //REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
         //CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
 
@@ -32,7 +33,7 @@ pipeline {
         HOST_CREDENTIALS                = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
         PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')
 
-        REPOSITORY  = "${PROJECT}-${SERVICE}"
+        REPOSITORY  = "${OWNER}/${PROJECT}-${SERVICE}"
         // REPOSITORY  = "${PROJECT}"
     }
 

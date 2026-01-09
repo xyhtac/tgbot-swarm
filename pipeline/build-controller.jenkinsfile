@@ -15,7 +15,7 @@ pipeline {
         // General Configuration
         // DEPLOY                  = 'alpha'
         PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
-        OWNER                   = 'xyhtac'
+        OWNER                   = 'xyhtac'                                  // Change if forked
         // SERVICE                 = 'controller'                              // Microservice identifier
 
         //REGISTRY_CREDENTIALS = ''
@@ -33,7 +33,7 @@ pipeline {
             steps {
                 script {
                     git(
-                        url: "https://github.com/xyhtac/tgbot-swarm",
+                        url: "https://github.com/${OWNER}/${PROJECT}",
                         branch: "alpha",
                         changelog: true,
                         poll: true

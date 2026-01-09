@@ -15,6 +15,7 @@ pipeline {
     environment {
 
         PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
+        OWNER                   = 'xyhtac'                                  // Change if forked
         //REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
         //CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
         
@@ -36,7 +37,7 @@ pipeline {
         PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')
         
         // REPOSITORY  = "${PROJECT}-${SERVICE}"
-        REPOSITORY  = "${PROJECT}"
+        REPOSITORY  = "${OWNER}/${PROJECT}"
     }
 
 

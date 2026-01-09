@@ -7,7 +7,7 @@
 
 // Load configuration from environment variables
 const BOT_TOKEN = process.env.BOT_TOKEN;                        // Bot API token
-const HOST_NAME = process.env.HOST_NAME;                        // Fully-qualified domain name for webhook
+const ENV_HOST_NAME = process.env.HOST_NAME;                        // Fully-qualified domain name for webhook
 const HOST_PORT = parseNumber(process.env.HOST_PORT, 443);      // External proxy port
 const SWARM_PATH = process.env.SWARM_PATH;                      // Requested Path for tgbot-swarm
 const SWARM_PORT = parseNumber(process.env.SWARM_PORT);         // Requested Port for tgbot-swarm
@@ -28,6 +28,37 @@ const config = require('config');
 
 // link fetch for external api access
 const fetch = require('node-fetch');
+
+// link filesystem dependency
+const fs = require('fs');
+
+
+let pemFqdn = null;
+// Try to extract FQDN from certificate
+try {
+    pemFqdn = extractFQDNFromPem(SSL_CERT);
+    if (pemFqdn) {
+        console.log('[INIT] FQDN extracted from certificate:', pemFqdn);
+    } else {
+        console.warn('[INIT] No FQDN found in PEM certificate');
+    }
+} catch (err) {
+    console.warn('[INIT] Certificate read error:', err.message);
+}
+
+// Resolve final hostname
+let HOST_NAME;
+if (ENV_HOST_NAME) {
+    HOST_NAME = ENV_HOST_NAME;
+    console.log('[INIT] Hostname overridden by ENV HOST_NAME:', HOST_NAME);
+} else if (pemFqdn) {
+    HOST_NAME = pemFqdn;
+    console.log('[INIT] Hostname resolved from certificate:', HOST_NAME);
+} else {
+    console.error('[FATAL] Hostname not provided and not found in certificate');
+    process.exit(1);
+}
+
 
 // load configurations
 // binary switch - log non-error information to console
@@ -75,7 +106,7 @@ bot.on('/start', msg => {
 // start service
 bot.start();
 console.log(`Setting up server on port ${SWARM_PORT}`)
-if  ( verbose ) {  };
+
 
 // get array of filtered strings from the active bot event list
 var botEventList = Array.from( bot.eventList.keys() ).map( (x) => { 
@@ -98,4 +129,49 @@ function parseBool(value, defaultValue = false) {
 function parseNumber(value, defaultValue) {
     const n = Number(value);
     return isNaN(n) ? defaultValue : n;
+}
+
+/**
+ * Extract FQDN from a PEM certificate
+ * Priority: SAN -> CN
+ *
+ * @param {string} certPath - Path to PEM certificate
+ * @returns {string|null} FQDN or null if not found
+ */
+function extractFQDNFromPem(certPath) {
+    if (!certPath || !fs.existsSync(certPath)) {
+        throw new Error(`Certificate not found: ${certPath}`);
+    }
+
+    // Try Subject Alternative Name (SAN)
+    try {
+        const sanOutput = execSync(
+            `openssl x509 -in "${certPath}" -noout -ext subjectAltName`,
+            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+        );
+
+        const sanMatch = sanOutput.match(/DNS:([^,\n]+)/);
+        if (sanMatch && sanMatch[1]) {
+            return sanMatch[1].trim();
+        }
+    } catch (_) {
+        // ignore, fallback to CN
+    }
+
+    // Fallback: Common Name (CN)
+    try {
+        const subjectOutput = execSync(
+            `openssl x509 -in "${certPath}" -noout -subject`,
+            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+        );
+
+        const cnMatch = subjectOutput.match(/CN\s*=\s*([^,\n]+)/);
+        if (cnMatch && cnMatch[1]) {
+            return cnMatch[1].trim();
+        }
+    } catch (_) {
+        // ignore
+    }
+
+    return null;
 }

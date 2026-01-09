@@ -6,6 +6,7 @@ pipeline {
 
     parameters {
         choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
+        choice(name: 'REGISTRY', choices: ['local', 'public'], description: 'Deploy image from Docker.io or from local repo')
         choice(name: 'IMAGE_TAG', choices: ['latest', 'select'], description: 'Deploy latest build or select build on registry')
     }
     
@@ -138,7 +139,6 @@ pipeline {
 
                                 echo "*** Starting new container ***"
                                 docker run -d --name ${PROJECT}_${SERVICE} \\
-                                    -e HOST_NAME=${HOST_NAME} \\
                                     -e HOST_PORT=${PROXY_PORT} \\
                                     -e BOT_TOKEN=${BOT_TOKEN} \\
                                     -e SWARM_PATH=${SWARM_PATH} \\
@@ -153,6 +153,19 @@ pipeline {
                                 echo "*** Deployment complete ***"
                             '
                         """
+
+                        // docker run -d --name ${PROJECT}_${SERVICE} \\
+                        //    -e HOST_NAME=${HOST_NAME} \\ [optional]
+                        //    -e HOST_PORT=${PROXY_PORT} \\
+                        //    -e BOT_TOKEN=${BOT_TOKEN} \\
+                        //    -e SWARM_PATH=${SWARM_PATH} \\
+                        //    -e SWARM_PORT=${SWARM_PORT} \\
+                        //    -e VERBOSE=${VERBOSE} \\ [optional]
+                        //    -e NODE_ENV=${DEPLOY} \\ [optional]
+                        //    -v ${PROJECT}-certificates:/app/certs:ro \\
+                        //    -p ${SWARM_PORT}:${SWARM_PORT}/${env.SERVICE_PROTO}  \\
+                        //    --restart unless-stopped \\
+                        //    ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
                     }
                 }
             }

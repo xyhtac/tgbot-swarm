@@ -35,7 +35,8 @@ pipeline {
         HOST_CREDENTIALS                = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
         PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')
         
-        REPOSITORY  = "${PROJECT}-${SERVICE}"
+        // REPOSITORY  = "${PROJECT}-${SERVICE}"
+        REPOSITORY  = "${PROJECT}"
     }
 
 

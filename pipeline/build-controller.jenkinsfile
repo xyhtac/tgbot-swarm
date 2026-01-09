@@ -15,12 +15,12 @@ pipeline {
         // General Configuration
         // DEPLOY                  = 'alpha'
         PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
-        SERVICE                 = 'controller'                              // Microservice identifier
+        // SERVICE                 = 'controller'                              // Microservice identifier
 
         //REGISTRY_CREDENTIALS = ''
         //CONTAINER_REGISTRY   = ''
         // REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
-        
+
         PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')     // Local Container Registry to put docker image
         
     }
@@ -72,7 +72,11 @@ pipeline {
 
             steps {
                 script {
-                    def repo = "${PROJECT}-${SERVICE}"
+                    if (SERVICE) {
+                        def repo = "${PROJECT}-${SERVICE}"
+                    } else {
+                        def repo = "${PROJECT}"
+                    }
                     def artifact_file = "tags_${PROJECT}_${REGISTRY_TYPE}.txt"
                     def tmp_file = "${artifact_file}.tmp"
 

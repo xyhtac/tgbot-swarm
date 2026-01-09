@@ -5,19 +5,19 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
+        // choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
         choice(name: 'SERVICE', choices: ['controller', 'datastore' ], description: 'Select single microservice to deploy')
-        choice(name: 'REGISTRY', choices: ['local', 'public'], description: 'Deploy image from Docker.io or from local repo')
+        choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
         choice(name: 'IMAGE_TAG', choices: ['latest', 'select'], description: 'Deploy latest build or select build on registry')
     }
     
 
     environment {
 
-        PROJECT                 = 'swarm'                                   // Project namesace ID
-        REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
-        CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
-        HOST_CREDENTIALS        = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
+        PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
+        //REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
+        //CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
+        
         DATASTORE_VOLUME        = "/opt/swarm-datastore"                    // Path to persistent storage
         SWARM_VOLUME            = "/opt/swarm-certificates"                 // Path to persistent config
 
@@ -30,16 +30,34 @@ pipeline {
         DB_PORT                 = "3306"
         
         // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
-        DB_PASS             = credentials("${PROJECT}-dbpass")      // Database password from Jenkins secrets store
-        HOSTNAME            = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
+        DB_PASS                         = credentials("${PROJECT}-dbpass")          // Database password from Jenkins secrets store
+        HOSTNAME                        = credentials("${PROJECT}-hostname")        // Swarm node hostname from Jenkins secrets store
+        HOST_CREDENTIALS                = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
+        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')
         
-        REPOSITORY  = "${PROJECT}-${SERVICE}-${DEPLOY}"
+        REPOSITORY  = "${PROJECT}-${SERVICE}"
     }
 
 
    
     stages {
        
+        stage('Resolve registry') {
+            steps {
+                script {
+                    if (REGISTRY_TYPE == 'private') {
+                        REGISTRY_CREDENTIALS = 'registry-creds'
+                        CONTAINER_REGISTRY   = PRIVATE_CONTAINER_REGISTRY
+                    } else {
+                        REGISTRY_CREDENTIALS = 'dockerhub-creds'
+                        CONTAINER_REGISTRY   = 'index.docker.io'
+                    }
+                    echo "Registry type: ${REGISTRY_TYPE}"
+                    echo "Container registry: ${CONTAINER_REGISTRY}"
+                }
+            }
+        }
+
         stage('Resolve deployment configuration') {
             steps {
                 script {
@@ -79,13 +97,11 @@ pipeline {
                     echo """
                     === Deployment Configuration ===
                     SERVICE        = ${env.SERVICE}
-                    DEPLOY         = ${env.DEPLOY}
                     TARGET_HOST    = ${env.TARGET_HOST}
                     HOST_TYPE      = ${env.HOST_TYPE}
                     CONTAINER_PORT = ${env.CONTAINER_PORT}
                     SERVICE_PORT   = ${env.SERVICE_PORT}
                     SERVICE_PROTO  = ${env.SERVICE_PROTO}
-
                     HOST_CREDENTIALS = ${HOST_CREDENTIALS}
                     =================================
                     """
@@ -175,9 +191,7 @@ pipeline {
                                     -v ${PROJECT}-certificates:/etc/nginx/certs \\
                                     -e HOSTNAME=${HOSTNAME} \\
                                     -e VERBOSE=${VERBOSE} \\
-                                    -e DEPLOY=${DEPLOY} \\
                                     -e PROXY_PORT=${PROXY_PORT} \\
-                                    -e NODE_ENV=${DEPLOY} \\
                                     -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                     --restart unless-stopped \\
                                     ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}

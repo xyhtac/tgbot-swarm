@@ -5,39 +5,56 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
-        choice(name: 'REGISTRY', choices: ['local', 'public'], description: 'Deploy image from Docker.io or from local repo')
+        // choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
+        choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
         choice(name: 'IMAGE_TAG', choices: ['latest', 'select'], description: 'Deploy latest build or select build on registry')
     }
     
 
     environment {
 
-        PROJECT                 = 'swarm'                                   // Project namesace ID
+        PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
         SERVICE                 = 'samplebot'                               // Microservice ID
-        REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
-        CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
-        HOST_CREDENTIALS        = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
+        //REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
+        //CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
 
-        // General Configuration
+
+        // Network Configuration
         VERBOSE                 = "1"
         PROXY_PORT              = "8443"
         SWARM_RANGE_START       = "3300"
         SWARM_RANGE_END         = "3900"
         SERVICE_PROTO           = "tcp"
 
-        
-        // tgbot_swarm request params
-        BOT_TOKEN           = credentials("${PROJECT}-tgtoken")     // TG Token from Secret store
-        HOST_NAME           = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
+        // secrets definitions
+        BOT_TOKEN                       = credentials("${PROJECT}-tgtoken")     // TG Token from Secret store
+        HOST_NAME                       = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
+        HOST_CREDENTIALS                = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
+        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')
 
-        REPOSITORY  = "${PROJECT}-${SERVICE}-${DEPLOY}"
+        REPOSITORY  = "${PROJECT}-${SERVICE}"
     }
 
 
    
     stages {
-                
+
+        stage('Resolve registry') {
+            steps {
+                script {
+                    if (REGISTRY_TYPE == 'private') {
+                        REGISTRY_CREDENTIALS = 'registry-creds'
+                        CONTAINER_REGISTRY   = PRIVATE_CONTAINER_REGISTRY
+                    } else {
+                        REGISTRY_CREDENTIALS = 'dockerhub-creds'
+                        CONTAINER_REGISTRY   = 'index.docker.io'
+                    }
+                    echo "Registry type: ${REGISTRY_TYPE}"
+                    echo "Container registry: ${CONTAINER_REGISTRY}"
+                }
+            }
+        }
+
         stage('Generate UUID for Path') {
             steps {
                 script {
@@ -144,7 +161,6 @@ pipeline {
                                     -e SWARM_PATH=${SWARM_PATH} \\
                                     -e SWARM_PORT=${SWARM_PORT} \\
                                     -e VERBOSE=${VERBOSE} \\
-                                    -e NODE_ENV=${DEPLOY} \\
                                     -v ${PROJECT}-certificates:/app/certs:ro \\
                                     -p ${SWARM_PORT}:${SWARM_PORT}/${env.SERVICE_PROTO}  \\
                                     --restart unless-stopped \\

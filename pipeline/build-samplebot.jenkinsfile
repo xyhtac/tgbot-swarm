@@ -5,20 +5,22 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
-        choice(name: 'REGISTRY', choices: ['local', 'public'], description: 'Push image to Docker.io or to the local repo')
+        // choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
+        choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
     }
 
 
     environment {
 
         // General Configuration
-        DEPLOY                  = 'alpha'
-        PROJECT                 = 'swarm'                                   // Project namesace ID
+        // DEPLOY                  = 'alpha'
+        PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
         SERVICE                 = 'samplebot'                               // Microservice identifier
 
-        REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
-        CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
+        //REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
+        //CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
+
+        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')
         
     }
     
@@ -49,13 +51,29 @@ pipeline {
             }
         }
 
+        stage('Resolve registry') {
+            steps {
+                script {
+                    if (REGISTRY_TYPE == 'private') {
+                        REGISTRY_CREDENTIALS = 'registry-creds'
+                        CONTAINER_REGISTRY   = PRIVATE_CONTAINER_REGISTRY
+                    } else {
+                        REGISTRY_CREDENTIALS = 'dockerhub-creds'
+                        CONTAINER_REGISTRY   = 'index.docker.io'
+                    }
+                    echo "Registry type: ${REGISTRY_TYPE}"
+                    echo "Container registry: ${CONTAINER_REGISTRY}"
+                }
+            }
+        }
+
 
         stage("Build and commit image") {
 
             steps {
                 script {
-                    def repo = "${PROJECT}-${SERVICE}-${DEPLOY}"
-                    def artifact_file = "tags_${PROJECT}.txt"
+                    def repo = "${PROJECT}-${SERVICE}"
+                    def artifact_file = "tags_${PROJECT}_${REGISTRY_TYPE}.txt"
                     def tmp_file = "${artifact_file}.tmp"
 
                     def baseTag = "${CONTAINER_REGISTRY}/${repo}:${VERSION}-build${BUILD_NUMBER}"

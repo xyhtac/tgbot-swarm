@@ -5,7 +5,7 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
+        // choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
         choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
     }
 
@@ -13,14 +13,14 @@ pipeline {
     environment {
 
         // General Configuration
-        DEPLOY                  = 'alpha'
-        PROJECT                 = 'swarm'                                   // Project namesace ID
+        // DEPLOY                  = 'alpha'
+        PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
         SERVICE                 = 'controller'                              // Microservice identifier
 
-        REGISTRY_CREDENTIALS = ''
-        CONTAINER_REGISTRY   = ''
-
+        //REGISTRY_CREDENTIALS = ''
+        //CONTAINER_REGISTRY   = ''
         // REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
+        
         PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')     // Local Container Registry to put docker image
         
     }
@@ -72,7 +72,7 @@ pipeline {
 
             steps {
                 script {
-                    def repo = "${PROJECT}-${SERVICE}-${DEPLOY}"
+                    def repo = "${PROJECT}-${SERVICE}"
                     def artifact_file = "tags_${PROJECT}_${REGISTRY_TYPE}.txt"
                     def tmp_file = "${artifact_file}.tmp"
 

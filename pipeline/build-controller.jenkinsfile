@@ -75,7 +75,7 @@ pipeline {
             steps {
                 script {
                     def repo = "${PROJECT}-${SERVICE}-${DEPLOY}"
-                    def artifact_file = "tags_${PROJECT}.txt"
+                    def artifact_file = "tags_${PROJECT}_${TAGPREFIX}.txt"
                     def tmp_file = "${artifact_file}.tmp"
 
                     def baseTag = "${CONTAINER_REGISTRY}/${repo}:${VERSION}-build${BUILD_NUMBER}"

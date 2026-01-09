@@ -9,6 +9,7 @@ pipeline {
         choice(name: 'SERVICE', choices: ['controller', 'datastore' ], description: 'Select single microservice to deploy')
         choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
         choice(name: 'IMAGE_TAG', choices: ['latest', 'select'], description: 'Deploy latest build or select build on registry')
+        
     }
     
 

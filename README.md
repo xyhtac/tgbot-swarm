@@ -23,7 +23,7 @@ docker run -d --name tgbot-swarm-controller \
     -e HOSTNAME=foo.bar.com \
     -p 443:443/tcp  \
     --restart unless-stopped \
-tgbot-swarm/tgbot-swarm-controller:2.0
+xyhtac/tgbot-swarm:latest
 ```
 
 
@@ -36,7 +36,7 @@ docker run -d --name tgbot-swarm-samplebot \
     -v swarm-certificates:/app/certs:ro \
     -p 3300:3300/tcp  \
     --restart unless-stopped \
-tgbot-swarm/tgbot-swarm-samplebot:2.0
+xyhtac/tgbot-swarm-samplebot:latest
 ```
 
 

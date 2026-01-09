@@ -61,7 +61,7 @@ pipeline {
                         CONTAINER_REGISTRY   = PRIVATE_CONTAINER_REGISTRY
                     } else {
                         REGISTRY_CREDENTIALS = 'dockerhub-creds'
-                        CONTAINER_REGISTRY   = 'index.docker.io'
+                        CONTAINER_REGISTRY   = "${OWNER}/"
                     }
                     echo "Registry type: ${REGISTRY_TYPE}"
                     echo "Container registry: ${CONTAINER_REGISTRY}"
@@ -73,7 +73,7 @@ pipeline {
 
             steps {
                 script {
-                    def repo = "${OWNER}/${PROJECT}"
+                    def repo = "${PROJECT}"
                     def artifact_file = "tags_${PROJECT}_${REGISTRY_TYPE}.txt"
                     def tmp_file = "${artifact_file}.tmp"
 

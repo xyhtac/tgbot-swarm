@@ -5,11 +5,10 @@ pipeline {
     agent any
 
     parameters {
-        // choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
         choice(name: 'SERVICE', choices: ['controller', 'datastore' ], description: 'Select single microservice to deploy')
         choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
         choice(name: 'IMAGE_TAG', choices: ['latest', 'select'], description: 'Deploy latest build or select build on registry')
-        
+
     }
     
 
@@ -17,8 +16,6 @@ pipeline {
 
         PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
         OWNER                   = 'xyhtac'                                  // Change if forked
-        //REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
-        //CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
         
         DATASTORE_VOLUME        = "/opt/swarm-datastore"                    // Path to persistent storage
         SWARM_VOLUME            = "/opt/swarm-certificates"                 // Path to persistent config
@@ -35,9 +32,8 @@ pipeline {
         DB_PASS                         = credentials("${PROJECT}-dbpass")          // Database password from Jenkins secrets store
         HOSTNAME                        = credentials("${PROJECT}-hostname")        // Swarm node hostname from Jenkins secrets store
         HOST_CREDENTIALS                = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
-        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')
+        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')     // Undisclosed Local Container Registry
         
-        // REPOSITORY  = "${PROJECT}-${SERVICE}"
         REPOSITORY  = "${OWNER}/${PROJECT}"
     }
 
@@ -53,7 +49,7 @@ pipeline {
                         CONTAINER_REGISTRY   = PRIVATE_CONTAINER_REGISTRY
                     } else {
                         REGISTRY_CREDENTIALS = 'dockerhub-creds'
-                        CONTAINER_REGISTRY   = 'index.docker.io'
+                        CONTAINER_REGISTRY   = 'docker.io'
                     }
                     echo "Registry type: ${REGISTRY_TYPE}"
                     echo "Container registry: ${CONTAINER_REGISTRY}"

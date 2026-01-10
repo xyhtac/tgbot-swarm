@@ -5,24 +5,15 @@ pipeline {
     agent any
 
     parameters {
-        // choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
         choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
     }
 
 
     environment {
 
-        // General Configuration
-        // DEPLOY                  = 'alpha'
-        PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
-        OWNER                   = 'xyhtac'                                  // Change if forked
-        // SERVICE                 = 'controller'                              // Microservice identifier
-
-        //REGISTRY_CREDENTIALS = ''
-        //CONTAINER_REGISTRY   = ''
-        // REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
-
-        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')     // Local Container Registry to put docker image
+        PROJECT                         = 'tgbot-swarm'                             // Project namesace ID
+        OWNER                           = 'xyhtac'                                  // Change if forked
+        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')     // Undisclosed Local Container Registry
         
     }
     

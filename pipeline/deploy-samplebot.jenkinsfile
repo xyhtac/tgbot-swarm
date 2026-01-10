@@ -5,7 +5,6 @@ pipeline {
     agent any
 
     parameters {
-        // choice(name: 'DEPLOY', choices: ['dev', 'prod', 'alpha'], description: 'Select configuration branch/environment')
         choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
         choice(name: 'IMAGE_TAG', choices: ['latest', 'select'], description: 'Deploy latest build or select build on registry')
     }
@@ -16,25 +15,21 @@ pipeline {
         PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
         SERVICE                 = 'samplebot'                               // Microservice ID
         OWNER                   = 'xyhtac'                                  // Change if forked
-        //REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
-        //CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
-
+        VERBOSE                 = '1'
 
         // Network Configuration
-        VERBOSE                 = "1"
         PROXY_PORT              = "8443"
         SWARM_RANGE_START       = "3300"
         SWARM_RANGE_END         = "3900"
         SERVICE_PROTO           = "tcp"
 
         // secrets definitions
-        BOT_TOKEN                       = credentials("${PROJECT}-tgtoken")     // TG Token from Secret store
-        HOST_NAME                       = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
+        BOT_TOKEN                       = credentials("${PROJECT}-tgtoken")         // TG Token from Secret store
+        HOST_NAME                       = credentials("${PROJECT}-hostname")        // Swarm node hostname from Jenkins secrets store
         HOST_CREDENTIALS                = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
-        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')
+        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')     // Undisclosed Local Container Registry
 
         REPOSITORY  = "${OWNER}/${PROJECT}-${SERVICE}"
-        // REPOSITORY  = "${PROJECT}"
     }
 
 

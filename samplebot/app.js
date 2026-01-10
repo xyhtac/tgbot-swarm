@@ -32,6 +32,9 @@ const fetch = require('node-fetch');
 // link filesystem dependency
 const fs = require('fs');
 
+// link crypto library for readin pem certs
+const { X509Certificate } = require('crypto');
+
 
 let pemFqdn = null;
 // Try to extract FQDN from certificate
@@ -139,39 +142,22 @@ function parseNumber(value, defaultValue) {
  * @returns {string|null} FQDN or null if not found
  */
 function extractFQDNFromPem(certPath) {
-    if (!certPath || !fs.existsSync(certPath)) {
+    if (!fs.existsSync(certPath)) {
         throw new Error(`Certificate not found: ${certPath}`);
     }
 
-    // Try Subject Alternative Name (SAN)
-    try {
-        const sanOutput = execSync(
-            `openssl x509 -in "${certPath}" -noout -ext subjectAltName`,
-            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
-        );
+    const pem = fs.readFileSync(certPath);
+    const cert = new X509Certificate(pem);
 
-        const sanMatch = sanOutput.match(/DNS:([^,\n]+)/);
-        if (sanMatch && sanMatch[1]) {
-            return sanMatch[1].trim();
+    // Prefer SAN
+    if (cert.subjectAltName) {
+        const match = cert.subjectAltName.match(/DNS:([^,]+)/);
+        if (match) {
+            return match[1].trim();
         }
-    } catch (_) {
-        // ignore, fallback to CN
     }
 
-    // Fallback: Common Name (CN)
-    try {
-        const subjectOutput = execSync(
-            `openssl x509 -in "${certPath}" -noout -subject`,
-            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
-        );
-
-        const cnMatch = subjectOutput.match(/CN\s*=\s*([^,\n]+)/);
-        if (cnMatch && cnMatch[1]) {
-            return cnMatch[1].trim();
-        }
-    } catch (_) {
-        // ignore
-    }
-
-    return null;
+    // Fallback to CN
+    const cnMatch = cert.subject.match(/CN=([^,]+)/);
+    return cnMatch ? cnMatch[1].trim() : null;
 }

@@ -6,13 +6,13 @@
 
 
 // Load configuration from environment variables
-const BOT_TOKEN = process.env.BOT_TOKEN;                        // Bot API token
+const BOT_TOKEN = process.env.BOT_TOKEN;                            // Bot API token
 const ENV_HOST_NAME = process.env.HOST_NAME;                        // Fully-qualified domain name for webhook
-const HOST_PORT = parseNumber(process.env.HOST_PORT, 443);      // External proxy port
-const SWARM_PATH = process.env.SWARM_PATH;                      // Requested Path for tgbot-swarm
-const SWARM_PORT = parseNumber(process.env.SWARM_PORT);         // Requested Port for tgbot-swarm
-const SSL_KEY  = process.env.SSL_KEY  || '/app/ssl.key';        // SSL Key local filename with fallback
-const SSL_CERT = process.env.SSL_CERT || '/app/ssl.pem';        // SSL Certificate local filename with fallback
+const HOST_PORT = parseNumber(process.env.HOST_PORT, 443);          // External proxy port
+const SWARM_PATH = process.env.SWARM_PATH;                          // Requested Path for tgbot-swarm
+const SWARM_PORT = parseNumber(process.env.SWARM_PORT);             // Requested Port for tgbot-swarm
+const SSL_KEY  = process.env.SSL_KEY  || '/app/certs/ssl.key';      // SSL Key local filename with fallback
+const SSL_CERT = process.env.SSL_CERT || '/app/certs/ssl.pem';      // SSL Certificate local filename with fallback
 
 // Verify required values
 if (!BOT_TOKEN || isNaN(SWARM_PORT) || isNaN(HOST_PORT)) {

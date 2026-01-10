@@ -1,4 +1,4 @@
-// Build controller microservice and push it to registry
+// Build samplebot microservice and push it to registry
 
 pipeline {
 
@@ -12,6 +12,7 @@ pipeline {
     environment {
 
         PROJECT                         = 'tgbot-swarm'                             // Project namesace ID
+        SERVICE                         = 'samplebot'                               // Microservice identifier
         OWNER                           = 'xyhtac'                                  // Change if forked
         PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')     // Undisclosed Local Container Registry
         
@@ -60,11 +61,12 @@ pipeline {
             }
         }
 
+
         stage("Build and commit image") {
 
             steps {
                 script {
-                    def repo = "${OWNER}/${PROJECT}"
+                    def repo = "${OWNER}/${PROJECT}-${SERVICE}"
                     def artifact_file = "tags_${PROJECT}_${REGISTRY_TYPE}.txt"
                     def tmp_file = "${artifact_file}.tmp"
 
@@ -75,7 +77,7 @@ pipeline {
                     imageTag = baseTag
                     
                     // --- Build Image ---
-                    sh "cd swarm && docker build -t ${imageTag} -t ${imageLatestTag} ."
+                    sh "cd samplebot && docker build -t ${imageTag} -t ${imageLatestTag} ."
 
                     withCredentials([usernamePassword(
                         credentialsId: "${REGISTRY_CREDENTIALS}",

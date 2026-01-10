@@ -1,0 +1,33 @@
+events {
+}
+
+http {
+    proxy_redirect              off;
+    proxy_socket_keepalive      on;
+    proxy_send_timeout          10s;
+    proxy_set_header            X-Real-IP   $remote_addr;
+    proxy_set_header            X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header            X-Forwarded-Host $server_name;
+    proxy_set_header            X-Forwarded-Proto https;
+
+    server {
+        listen ${PROXY_PORT} ssl;
+        server_name ${HOSTNAME};
+
+        ssl_session_timeout 1d;
+        ssl_verify_client   off;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256;
+        ssl_prefer_server_ciphers on;
+
+        ssl_certificate     /etc/nginx/certs/ssl.pem;
+        ssl_certificate_key /etc/nginx/certs/ssl.key;
+
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+        }
+
+        include /etc/nginx/conf.d/endpoints.conf;
+    }
+}

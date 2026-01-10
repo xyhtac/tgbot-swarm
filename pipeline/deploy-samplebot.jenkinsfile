@@ -1,0 +1,188 @@
+// Build single microservice with a defined environment settings
+
+pipeline {
+
+    agent any
+
+    parameters {
+        choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
+        choice(name: 'IMAGE_TAG', choices: ['latest', 'select'], description: 'Deploy latest build or select build on registry')
+    }
+    
+
+    environment {
+
+        PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
+        SERVICE                 = 'samplebot'                               // Microservice ID
+        OWNER                   = 'xyhtac'                                  // Change if forked
+        VERBOSE                 = '1'
+
+        // Network Configuration
+        PROXY_PORT              = "8443"
+        SWARM_RANGE_START       = "3300"
+        SWARM_RANGE_END         = "3900"
+        SERVICE_PROTO           = "tcp"
+
+        // secrets definitions
+        BOT_TOKEN                       = credentials("${PROJECT}-tgtoken")         // TG Token from Secret store
+        HOST_NAME                       = credentials("${PROJECT}-hostname")        // Swarm node hostname from Jenkins secrets store
+        HOST_CREDENTIALS                = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
+        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')     // Undisclosed Local Container Registry
+
+        REPOSITORY  = "${OWNER}/${PROJECT}-${SERVICE}"
+    }
+
+
+   
+    stages {
+
+        stage('Resolve registry') {
+            steps {
+                script {
+                    if (REGISTRY_TYPE == 'private') {
+                        REGISTRY_CREDENTIALS = 'registry-creds'
+                        CONTAINER_REGISTRY   = PRIVATE_CONTAINER_REGISTRY
+                    } else {
+                        REGISTRY_CREDENTIALS = 'dockerhub-creds'
+                        CONTAINER_REGISTRY   = 'index.docker.io'
+                    }
+                    echo "Registry type: ${REGISTRY_TYPE}"
+                    echo "Container registry: ${CONTAINER_REGISTRY}"
+                }
+            }
+        }
+
+        stage('Generate UUID for Path') {
+            steps {
+                script {
+                    def myUuid = UUID.randomUUID().toString()
+                    echo "Generated UUID: ${myUuid}"
+                    env.SWARM_PATH = myUuid
+                }
+            }
+        }
+
+        stage('Select Image for node:samplebot') {
+            steps {
+                script {
+                    if ( IMAGE_TAG != "latest" ) {
+                        // if BUILD is undefined or has value 'select', get list of tags 
+                        // from repository and ask user to select one.
+                        def registry = "https://${CONTAINER_REGISTRY}"
+
+                        withCredentials([usernamePassword(
+                            credentialsId: "${REGISTRY_CREDENTIALS}",
+                            usernameVariable: 'REG_USER',
+                            passwordVariable: 'REG_PASS'
+                        )]) {
+                            def json = sh(
+                                script: """
+                                    curl -s -u "$REG_USER:$REG_PASS" ${registry}/v2/${REPOSITORY}/tags/list
+                                """,
+                                returnStdout: true
+                            )
+
+                            def tags = new groovy.json.JsonSlurper().parseText(json).tags
+                            if (!tags) tags = ["no-tags-found"]
+
+                            // User picks a tag
+                            env.IMAGE_TAG = input(
+                                id: "TagSelector",
+                                message: "Select image tag for deployment",
+                                parameters: [
+                                    choice(name: 'IMAGE_TAG', choices: tags.join('\n'))
+                                ]
+                            )
+                        }
+                    }
+                    echo "Selected image: ${env.IMAGE_TAG}"
+                }
+            }
+        }
+        stage('Deploy to remote host node:samplebot') {
+            steps {
+                script {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: "${REGISTRY_CREDENTIALS}",
+                            usernameVariable: 'REG_USER',
+                            passwordVariable: 'REG_PASS'
+                        ),
+                        usernamePassword(
+                            credentialsId: "${HOST_CREDENTIALS}",
+                            usernameVariable: 'HOST_USER',
+                            passwordVariable: 'HOST_PASS'
+                        )
+                    ]) {
+
+                        // Select free port on host for swarm node deployment
+                        def raw = sh(
+                            script: """
+                            sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${HOST_NAME} << 'EOF'
+                            set -e
+                            USED_PORTS=\$(ss -lnt | awk 'NR>1 {gsub(/.*:/,"",\$4); print \$4}' | sort -n | uniq)
+                            for ((port=${SWARM_RANGE_START}; port<=${SWARM_RANGE_END}; port++)); do
+                                if ! echo "\$USED_PORTS" | grep -qx "\$port"; then
+                                    echo "\$port"
+                                    exit 0
+                                fi
+                            done
+                            echo "No free port found" >&2
+                            exit 1
+                            EOF
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        def lines = raw.readLines().findAll { it?.trim() }
+                        def SWARM_PORT = lines[-1]
+
+                        echo "Selected free port: ${SWARM_PORT}"
+
+                        sh """
+                            sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${HOST_NAME} '
+
+                                echo "*** Logging into registry ***"
+                                echo "${REG_PASS}" | docker login ${CONTAINER_REGISTRY} -u "${REG_USER}" --password-stdin
+
+                                echo "*** Pulling image ${IMAGE_TAG} ***"
+                                docker pull ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
+
+                                echo "*** Stopping old container ***"
+                                docker rm -f ${PROJECT}_${SERVICE} || true
+
+                                echo "*** Starting new container ***"
+                                docker run -d --name ${PROJECT}_${SERVICE} \\
+                                    -e HOST_PORT=${PROXY_PORT} \\
+                                    -e BOT_TOKEN=${BOT_TOKEN} \\
+                                    -e SWARM_PATH=${SWARM_PATH} \\
+                                    -e SWARM_PORT=${SWARM_PORT} \\
+                                    -e VERBOSE=${VERBOSE} \\
+                                    -v ${PROJECT}-certificates:/app/certs:ro \\
+                                    -p ${SWARM_PORT}:${SWARM_PORT}/${env.SERVICE_PROTO}  \\
+                                    --restart unless-stopped \\
+                                    ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
+
+                                echo "*** Deployment complete ***"
+                            '
+                        """
+
+                        // docker run -d --name ${PROJECT}_${SERVICE} \\
+                        //    -e HOST_NAME=${HOST_NAME} \\ [optional]
+                        //    -e HOST_PORT=${PROXY_PORT} \\
+                        //    -e BOT_TOKEN=${BOT_TOKEN} \\
+                        //    -e SWARM_PATH=${SWARM_PATH} \\
+                        //    -e SWARM_PORT=${SWARM_PORT} \\
+                        //    -e VERBOSE=${VERBOSE} \\ [optional]
+                        //    -e NODE_ENV=${DEPLOY} \\ [optional]
+                        //    -v ${PROJECT}-certificates:/app/certs:ro \\
+                        //    -p ${SWARM_PORT}:${SWARM_PORT}/${env.SERVICE_PROTO}  \\
+                        //    --restart unless-stopped \\
+                        //    ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
+                    }
+                }
+            }
+        }
+
+    }
+}

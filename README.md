@@ -1,7 +1,45 @@
 ![](https://images4.imagebam.com/49/a5/01/MEQST5U_o.jpg)
 Run multiple Telegram bots on a single host
 
-[![tgbot-swarm-1.0](https://img.shields.io/badge/dev-tgbot_swarm_1.3-7a00b9)](https://github.com/xyhtac/tgbot-swarm/releases/tag/v.1.3)
+[![tgbot-swarm-2.0](https://img.shields.io/badge/dev-tgbot_swarm_2.0-7a00b9)](https://github.com/xyhtac/tgbot-swarm/releases/tag/v.2.0)
+
+### TL&DR.
+tgbot-swarm sets up a container running nginx and nodejs controller that generates reverse proxy configs for nginx and reloads nginx when containers are started and stopped. It also creates self-signed certificate and exposes it through docker shared volume, making it easy to start multiple containers serving independent Telegram bots on a single host.
+
+Step 1. Create a named volume for certificates
+```
+mkdir -p "/opt/swarm-certificate" \
+docker volume create --driver local \
+    --opt type=none \
+    --opt device=/opt/swarm-certificate \
+    --opt o=bind tgbot-swarm-certificates
+```
+
+Step 2. Spin up a controller
+```
+docker run -d --name tgbot-swarm-controller \
+    -v /var/run/docker.sock:/tmp/docker.sock:ro \
+    -v tgbot-swarm-certificates:/etc/nginx/certs \
+    -e HOSTNAME=foo.bar.com \
+    -p 443:443/tcp  \
+    --restart unless-stopped \
+xyhtac/tgbot-swarm:latest
+```
+
+
+Step 3. Spin up example bot
+```
+docker run -d --name tgbot-swarm-samplebot \
+    -e BOT_TOKEN=[SECRET_BOT_TOKEN] \
+    -e SWARM_PATH=examplebot \
+    -e SWARM_PORT=3300 \
+    -v tgbot-swarm-certificates:/app/certs:ro \
+    -p 3300:3300/tcp  \
+    --restart unless-stopped \
+xyhtac/tgbot-swarm-samplebot:latest
+```
+
+
 
 ### Abstract.
 Telegram offers JSON-based, accessible via a RESTful control [webhook API](https://core.telegram.org/bots/API) updates to push data to the handler application running as a publicly available https server on one of valid ports (80, 443, 88 or 8443) with self-signed or CA-signed certificate. A frugal build-and-forget methodology is oftentimes preferred to avoid the costs of using fancy off-site CI/CD platforms and no-code services. Popular and well-maintained open source bot libraries widely used by developers ([Telebot](https://github.com/mullwar/telebot), [Telegraf](https://github.com/telegraf/telegraf), etc.) may serve several bot tokens per process, but it comes with a cost of combining multiple bot logic into one source repo. 
@@ -12,56 +50,11 @@ Running multiple instances of dockerized bot applications on a single host consi
 ### Solution.
 To minimise our efforts in bot hosting deployment `tgbot-swarm` solves two scopes of tasks:
 
-1. Provide a built-in API that employs port, path and SSL-certificate assignment mechanism and a relevant proxy config generation. In a nutshell it is a node.js-express controller application that runs in the same docker container with nginx, serves RESTful JSON-based API and sends system control signals to local nginx process.
+1. Provide a dockerized controller that monitors other containers through the docker.sock and extracts their environment parameters, generate and keep updated relevant nginx configurations that connect hostname paths to running containers, generate self-signed certificates and expose them via shared docker volume.
 
-2. Provide Jenkins groovy pipelines to automate build and remote deployment (using ssh in this example) of a controller/proxy container and an arbitrary bot container based on response from the controller.
+2. Provide Jenkins groovy pipelines to automate build, configuration and deployment of a controller/proxy container and an example bot container binding your bots to unique paths using UUID and automatically choosing available port on the host from a given range.
 
-### Usage.
-1. Prepare your `tgbot-swarm` host:
-```
-> sudo groupadd jenkins
-> sudo adduser jenkins
-> sudo passwd jenkins [password]
-> sudo usermod -aG jenkins jenkins
-> loginctl enable-linger jenkins
-> mkdir /opt/jenkins
-> chown jenkins:jenkins jenkins
-> chmod 755 jenkins
-> yum install docker
-> firewall-cmd --add-port=[external-port]/tcp --permanent
-```
-2. Make your own fork of this repository.
-3. Edit `pipeline/infrastructure-dev.conf` according to your host environment.
-4. Create plaintext records in Jenkins secret storage:
-* `swarm-apikey-dev` = SOME-RANDOM-STRING
-* `swarm-hostname-dev` = Domain name of your tgbot host.
-* `swarm-sshcred-dev` = SSH password of previously created user Jenkins on the host
-* `swarm-tgtoken-dev` = Telegram API key of your bot
-5. Edit `pipeline/deploy-controller.jenkinsfile`: set your repo url in the `Checkout Code` stage.
-6. Edit `pipeline/deploy-samplebot.jenkinsfile` according to your host environment and set your repo url in the `Checkout Code` stage.
-7. Create Jenkins pipelines using `pipeline/deploy-controller.jenkinsfile` and `pipeline/deploy-samplebot.jenkinsfile` from your repo.
-8. Run `deploy-controller` and `deploy-samplebot` sequentially.
 
-### API request/response
-```
-"request": {
-    "api-key": "",
-    "application-id": "",
-    "description": ""
-}
-```
-```
-"response": {
-    "path": "",
-    "port": "",
-    "url": "",
-    "updated": "",
-    "ssl_certificate": "",
-    "ssl_key": "",
-    "docker_container_name": "",
-    "docker_image_name": ""
-}
-```
 
 ### License
 `tgbot-swarm` is licensed under the [MIT](https://www.mit-license.org/) license for all open source applications.

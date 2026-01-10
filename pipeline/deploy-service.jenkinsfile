@@ -5,47 +5,58 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'DEPLOY', choices: ['dev', 'prod'], description: 'Select configuration environment')
         choice(name: 'SERVICE', choices: ['controller', 'datastore' ], description: 'Select single microservice to deploy')
+        choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
         choice(name: 'IMAGE_TAG', choices: ['latest', 'select'], description: 'Deploy latest build or select build on registry')
+
     }
     
 
     environment {
 
-        PROJECT                 = 'swarm'                                   // Project namesace ID
-        REGISTRY_CREDENTIALS    = 'registry-creds'                          // Registry Credentials identifier in Jenkins store
-        CONTAINER_REGISTRY      = credentials('container-registry-url')     // Container Registry to put docker image
-        DATASTORE_VOLUME        = "/opt/swarm-store"                      // Path to persistent storage
+        PROJECT                 = 'tgbot-swarm'                             // Project namesace ID
+        OWNER                   = 'xyhtac'                                  // Change if forked
+        
+        DATASTORE_VOLUME        = "/opt/swarm-datastore"                    // Path to persistent storage
+        SWARM_VOLUME            = "/opt/swarm-certificates"                 // Path to persistent config
+
+        // General Configuration
+        VERBOSE                 = "1"
+        PROXY_PORT              = "8443"
+
+        // DATASTRORE service params
+        DB_VOLUME               = "datastore"
+        DB_PORT                 = "3306"
         
         // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
-        // API_KEY     = credentials("${PROJECT}-apikey")      // Swarm API Key from Jenkins secrets store
-        // CERT_NAME   = "${PROJECT}-${SERVICE}"              // Define certificate namespace
-        DB_PASS     = credentials("${PROJECT}-dbpass")      // Database password from Jenkins secrets store
-        HOSTNAME    = credentials("${PROJECT}-hostname")    // Swarm node hostname from Jenkins secrets store
-        HOST_CREDS  = credentials("${PROJECT}-sshcreds")  // Swarm node SSH credentials from Jenkins secrets store
-
-        REPOSITORY  = "${PROJECT}-${SERVICE}-${DEPLOY}"
+        DB_PASS                         = credentials("${PROJECT}-dbpass")          // Database password from Jenkins secrets store
+        HOSTNAME                        = credentials("${PROJECT}-hostname")        // Swarm node hostname from Jenkins secrets store
+        HOST_CREDENTIALS                = "${PROJECT}-sshcreds"                     // Swarm node SSH credentials from Jenkins secrets store
+        PRIVATE_CONTAINER_REGISTRY      = credentials('container-registry-url')     // Undisclosed Local Container Registry
+        
+        REPOSITORY  = "${OWNER}/${PROJECT}"
     }
 
 
    
     stages {
-                
-        stage('Configure pipeline') {
+       
+        stage('Resolve registry') {
             steps {
                 script {
-                    if (env.DEPLOY != 'dev' && env.DEPLOY != 'prod') {
-                        echo 'Parameter not set, using default'
-                        env.DEPLOY = 'dev'
+                    if (REGISTRY_TYPE == 'private') {
+                        REGISTRY_CREDENTIALS = 'registry-creds'
+                        CONTAINER_REGISTRY   = PRIVATE_CONTAINER_REGISTRY
+                    } else {
+                        REGISTRY_CREDENTIALS = 'dockerhub-creds'
+                        CONTAINER_REGISTRY   = 'docker.io'
                     }
-                    env.CONFIGURATION = "pipeline/infrastructure-${DEPLOY}.conf"
+                    echo "Registry type: ${REGISTRY_TYPE}"
+                    echo "Container registry: ${CONTAINER_REGISTRY}"
                 }
-                load "${CONFIGURATION}"
             }
         }
 
-        
         stage('Resolve deployment configuration') {
             steps {
                 script {
@@ -85,12 +96,12 @@ pipeline {
                     echo """
                     === Deployment Configuration ===
                     SERVICE        = ${env.SERVICE}
-                    DEPLOY         = ${env.DEPLOY}
                     TARGET_HOST    = ${env.TARGET_HOST}
                     HOST_TYPE      = ${env.HOST_TYPE}
                     CONTAINER_PORT = ${env.CONTAINER_PORT}
                     SERVICE_PORT   = ${env.SERVICE_PORT}
                     SERVICE_PROTO  = ${env.SERVICE_PROTO}
+                    HOST_CREDENTIALS = ${HOST_CREDENTIALS}
                     =================================
                     """
                 }
@@ -150,7 +161,7 @@ pipeline {
                             passwordVariable: 'REG_PASS'
                         ),
                         usernamePassword(
-                            credentialsId: "${HOST_CREDS}",
+                            credentialsId: "${HOST_CREDENTIALS}",
                             usernameVariable: 'HOST_USER',
                             passwordVariable: 'HOST_PASS'
                         )
@@ -163,13 +174,24 @@ pipeline {
                                 echo "*** Pulling image ${IMAGE_TAG} ***"
                                 docker pull ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
 
+                                echo "*** Prepare named volume ***"
+                                mkdir -p "${SWARM_VOLUME}"
+                                docker volume create --driver local \\
+                                    --opt type=none \\
+                                    --opt device=${SWARM_VOLUME}\\
+                                    --opt o=bind ${PROJECT}-certificates || true
+
                                 echo "*** Stopping old container ***"
                                 docker rm -f ${PROJECT}_${SERVICE} || true
 
                                 echo "*** Starting new container ***"
                                 docker run -d --name ${PROJECT}_${SERVICE} \\
+                                    -v /var/run/docker.sock:/tmp/docker.sock:ro \\
+                                    -v ${PROJECT}-certificates:/etc/nginx/certs \\
+                                    -e HOSTNAME=${HOSTNAME} \\
+                                    -e VERBOSE=${VERBOSE} \\
+                                    -e PROXY_PORT=${PROXY_PORT} \\
                                     -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
-                                    -e NODE_ENV=${DEPLOY} \\
                                     --restart unless-stopped \\
                                     ${CONTAINER_REGISTRY}/${REPOSITORY}:${IMAGE_TAG}
 
@@ -190,7 +212,7 @@ pipeline {
                 script {
                     withCredentials([
                         usernamePassword(
-                            credentialsId: "${HOST_CREDS}",
+                            credentialsId: "${HOST_CREDENTIALS}",
                             usernameVariable: 'HOST_USER',
                             passwordVariable: 'HOST_PASS'
                         )
@@ -198,6 +220,8 @@ pipeline {
                         sh """
                             sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${TARGET_HOST} '
 
+                                echo "*** Prepare named volume ***"
+                                mkdir -p "${DATASTORE_VOLUME}"
                                 docker volume create --driver local \\
                                     --opt type=none \\
                                     --opt device=${DATASTORE_VOLUME}\\

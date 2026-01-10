@@ -1,19 +1,23 @@
 {
-  "name": "tgbot-swarm",
-  "version": "1.0.0",
-  "description": "Home for telegram bot services with nginx backbone",
-  "main": "api-controller.js",
+  "name": "swarm-nginx-controller",
+  "version": "2.0.1",
+  "description": "Dynamic nginx controller for Docker containers using SWARM_PATH/SWARM_PORT",
+  "main": "app.js",
   "scripts": {
-    "test": "echo \"No test specified yet\" && exit 1"
+    "start": "node app.js",
+    "lint": "echo \"No linting configured yet\"",
+    "test": "echo \"No tests specified yet\" && exit 1"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/xyhtac/tgbot-swarm.git"
   },
   "keywords": [
-    "webhook",
-    "telegram",
-    "nginx"
+    "nginx",
+    "docker",
+    "swarm",
+    "controller",
+    "webhook"
   ],
   "author": "Max.Fischer",
   "license": "MIT",
@@ -21,11 +25,11 @@
     "url": "https://github.com/xyhtac/tgbot-swarm/issues"
   },
   "homepage": "https://github.com/xyhtac/tgbot-swarm#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
-    "config": "^3.3.9",
-    "crypto": "^1.0.1",
-    "express": "^4.18.2",
-    "fs": "0.0.1-security",
-    "node-cmd": "^5.0.0"
+    "dockerode": "^3.3.0",
+    "fs-extra": "^11.1.1"
   }
 }

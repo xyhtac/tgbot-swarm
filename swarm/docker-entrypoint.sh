@@ -87,12 +87,19 @@ mkdir -p "$CERT_DIR"
 
 if [ ! -f "$CERT_DIR/ssl.key" ] || [ ! -f "$CERT_DIR/ssl.pem" ]; then
   echo "[INIT] Generating SSL certificates"
-
   openssl req -newkey rsa:2048 -sha256 -nodes \
     -keyout "$CERT_DIR/ssl.key" \
     -x509 -days 3650 \
     -out "$CERT_DIR/ssl.pem" \
-    -subj "/C=US/ST=New York/L=Brooklyn/O=${PROJECT}/CN=${HOSTNAME}"
+    -subj "/C=US/ST=New York/L=Brooklyn/O=${PROJECT}/CN=${HOSTNAME}" \
+    -addext "subjectAltName=DNS:${HOSTNAME}"
+
+  #openssl req -newkey rsa:2048 -sha256 -nodes \
+  #  -keyout "$CERT_DIR/ssl.key" \
+  #  -x509 -days 3650 \
+  #  -out "$CERT_DIR/ssl.pem" \
+  #  -subj "/C=US/ST=New York/L=Brooklyn/O=${PROJECT}/CN=${HOSTNAME}"
+  
 else
   echo "[INIT] Using existing SSL certificates"
 fi

@@ -152,7 +152,7 @@ pipeline {
                                 docker rm -f ${PROJECT}_${SERVICE} || true
 
                                 echo "*** Starting new container ***"
-                                docker run -d --name ${PROJECT}_${SERVICE} \\
+                                docker run -d --name ${PROJECT}_${SERVICE} --network ${PROJECT} \\
                                     -e HOST_PORT=${PROXY_PORT} \\
                                     -e BOT_TOKEN=${BOT_TOKEN} \\
                                     -e SWARM_PATH=${SWARM_PATH} \\

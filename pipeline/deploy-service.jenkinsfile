@@ -181,11 +181,16 @@ pipeline {
                                     --opt device=${SWARM_VOLUME}\\
                                     --opt o=bind ${PROJECT}-certificates || true
 
+                                echo "*** Ensure named network exists ***"
+                                docker network inspect ${PROJECT} >/dev/null 2>&1 || \\
+                                docker network create --driver bridge ${PROJECT}
+
+
                                 echo "*** Stopping old container ***"
                                 docker rm -f ${PROJECT}_${SERVICE} || true
 
                                 echo "*** Starting new container ***"
-                                docker run -d --name ${PROJECT}_${SERVICE} \\
+                                docker run -d --name ${PROJECT}_${SERVICE} --network ${PROJECT} \\
                                     -v /var/run/docker.sock:/tmp/docker.sock:ro \\
                                     -v ${PROJECT}-certificates:/etc/nginx/certs \\
                                     -e HOSTNAME=${HOSTNAME} \\
@@ -227,11 +232,15 @@ pipeline {
                                     --opt device=${DATASTORE_VOLUME}\\
                                     --opt o=bind ${PROJECT}-${SERVICE}-data || true
 
+                                echo "*** Ensure named network exists ***"
+                                docker network inspect ${PROJECT} >/dev/null 2>&1 || \\
+                                docker network create --driver bridge ${PROJECT}
+
                                 echo "*** Stopping old container ***"
                                 docker rm -f ${PROJECT}_${SERVICE} || true
 
                                 echo "*** Starting new container ***"
-                                docker run -d --name ${PROJECT}_${SERVICE} \\
+                                docker run -d --name ${PROJECT}_${SERVICE} --network ${PROJECT} \\
                                     -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                     -e MYSQL_ROOT_PASSWORD='${DB_PASS}' \\
                                     -v ${PROJECT}-${SERVICE}-data:/var/lib/mysql \\

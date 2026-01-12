@@ -34,10 +34,15 @@ fi
 
 # Start MariaDB in background
 #mysqld --user=mysql --port=$DB_PORT --datadir=/var/lib/mysql &
-#MYSQL_PID=$!
+
 
 # Start MariaDB in background
-mysqld_safe --datadir=/var/lib/mysql &
+
+mysqld --port=$DB_PORT --user=mysql --datadir=/var/lib/mysql &
+MYSQL_PID=$!
+
+# mysqld_safe --datadir=/var/lib/mysql &
+
 # Wait until ready
 until mysqladmin ping -h 127.0.0.1 --silent; do
     echo "Waiting for database..."

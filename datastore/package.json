@@ -1,0 +1,35 @@
+{
+    "name": "swarm-mysql-controller",
+    "version": "2.0.0",
+    "description": "Node.js controller for MySQL database management via Docker events",
+    "main": "app.js",
+    "scripts": {
+      "start": "node app.js"
+    },
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/xyhtac/tgbot-swarm.git"
+    },
+    "keywords": [
+      "docker",
+      "mysql",
+      "controller",
+      "nodejs",
+      "dockerode",
+      "swarm"
+    ],
+    "author": "Max.Fischer",
+    "license": "MIT",
+    "bugs": {
+      "url": "https://github.com/xyhtac/tgbot-swarm/issues"
+    },
+    "homepage": "https://github.com/xyhtac/tgbot-swarm#readme",
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "dependencies": {
+      "dockerode": "^3.3.0",
+      "mysql2": "^3.3.0"
+    }
+  }
+  

@@ -30,8 +30,19 @@ if [ ! -d "/var/lib/mysql/mysql" ]; then
 fi
 
 # Start MariaDB in background
-mysqld --user=mysql --port=$DB_PORT --datadir=/var/lib/mysql &
-MYSQL_PID=$!
+#mysqld --user=mysql --port=$DB_PORT --datadir=/var/lib/mysql &
+#MYSQL_PID=$!
+
+# Start MariaDB in background
+mysqld_safe --datadir=/var/lib/mysql &
+# Wait until ready
+until mysqladmin ping -h 127.0.0.1 --silent; do
+    echo "Waiting for database..."
+    sleep 1
+done
+
+# Start Node.js DB controller
+node /app/app.js
 
 # Wait a few seconds for DB to start
 sleep 5

@@ -10,6 +10,7 @@ mkdir -p "$STATE_DIR"
 # Default DB port
 DB_PORT="${DB_PORT:-3306}"
 export DB_PORT
+echo "Chosen port ${DB_PORT}"
 
 # Generate root password if not exists
 if [ -f "$STATE_FILE" ]; then
@@ -32,7 +33,7 @@ mkdir -p /run/mysqld
 chown -R mysql:mysql /run/mysqld
 
 if [ ! -d "/var/lib/mysql/mysql" ]; then
-    mariadb-install-db --user=mysql --datadir=/var/lib/mysql
+    mariadb-install-db --bind-address=0.0.0.0 --user=mysql --datadir=/var/lib/mysql
 fi
 
 # Start MariaDB in background

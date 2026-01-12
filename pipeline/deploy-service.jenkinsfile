@@ -214,6 +214,11 @@ pipeline {
                 script {
                     withCredentials([
                         usernamePassword(
+                            credentialsId: "${REGISTRY_CREDENTIALS}",
+                            usernameVariable: 'REG_USER',
+                            passwordVariable: 'REG_PASS'
+                        ),
+                        usernamePassword(
                             credentialsId: "${HOST_CREDENTIALS}",
                             usernameVariable: 'HOST_USER',
                             passwordVariable: 'HOST_PASS'

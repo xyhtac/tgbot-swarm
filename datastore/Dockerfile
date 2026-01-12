@@ -1,6 +1,9 @@
 # Use Node 20 alpine as base
 FROM node:20-alpine
 
+# database port (from env)
+ARG DB_PORT=3306
+
 # Install MariaDB client and server, bash, openssl
 RUN apk add --no-cache mariadb mariadb-client bash openssl curl
 
@@ -16,11 +19,15 @@ RUN npm install
 # Copy application code
 COPY . ./
 
+# Override network disable
+RUN mkdir -p /etc/my.cnf.d && \
+    printf "[mysqld]\nskip-networking=0\nbind-address=0.0.0.0\nport=${DB_PORT}\n" \
+    > /etc/my.cnf.d/99-docker.cnf
+
 # Make entrypoint executable
 RUN chmod +x /app/docker-entrypoint.sh
 
-# Expose database port (from env)
-ARG DB_PORT=3306
+
 EXPOSE ${DB_PORT}
 
 # Entrypoint

@@ -33,7 +33,7 @@ mkdir -p /run/mysqld
 chown -R mysql:mysql /run/mysqld
 
 if [ ! -d "/var/lib/mysql/mysql" ]; then
-    mariadb-install-db --bind-address=0.0.0.0 --user=mysql --datadir=/var/lib/mysql
+    mariadb-install-db --user=mysql --datadir=/var/lib/mysql
 fi
 
 # Start MariaDB in background
@@ -42,7 +42,7 @@ fi
 
 # Start MariaDB in background
 
-mysqld --port=$DB_PORT --user=mysql --datadir=/var/lib/mysql --bind-address=0.0.0.0 &
+mysqld --port=$DB_PORT --user=mysql --datadir=/var/lib/mysql &
 DB_PID=$!
 
 # mysqld_safe --datadir=/var/lib/mysql &

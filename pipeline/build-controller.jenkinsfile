@@ -5,7 +5,7 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'SERVICE', choices: ['controller', 'datastore' ], description: 'Select single microservice to build')
+        choice(name: 'SERVICE', choices: ['swarm', 'datastore' ], description: 'Select single microservice to build')
         choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
     }
 
@@ -66,7 +66,7 @@ pipeline {
             steps {
                 script {
                     def repo = "${OWNER}/${PROJECT}"
-                    if (SERVICE != 'controller') {
+                    if (SERVICE != 'swarm') {
                         repo = "${repo}-${SERVICE}"
                     }
 

@@ -5,6 +5,7 @@ pipeline {
     agent any
 
     parameters {
+        choice(name: 'SERVICE', choices: ['controller', 'datastore' ], description: 'Select single microservice to build')
         choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
     }
 
@@ -65,6 +66,10 @@ pipeline {
             steps {
                 script {
                     def repo = "${OWNER}/${PROJECT}"
+                    if (SERVICE != 'controller') {
+                        repo = "${repo}-${SERVICE}"
+                    }
+
                     def artifact_file = "tags_${PROJECT}_${REGISTRY_TYPE}.txt"
                     def tmp_file = "${artifact_file}.tmp"
 
@@ -75,7 +80,7 @@ pipeline {
                     imageTag = baseTag
                     
                     // --- Build Image ---
-                    sh "cd swarm && docker build -t ${imageTag} -t ${imageLatestTag} ."
+                    sh "cd ${SERVICE} && docker build -t ${imageTag} -t ${imageLatestTag} ."
 
                     withCredentials([usernamePassword(
                         credentialsId: "${REGISTRY_CREDENTIALS}",

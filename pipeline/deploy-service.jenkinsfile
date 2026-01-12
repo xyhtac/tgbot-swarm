@@ -181,11 +181,16 @@ pipeline {
                                     --opt device=${SWARM_VOLUME}\\
                                     --opt o=bind ${PROJECT}-certificates || true
 
+                                echo "*** Ensure named network exists ***"
+                                docker network inspect ${PROJECT} >/dev/null 2>&1 || \\
+                                docker network create --driver bridge ${PROJECT}
+
+
                                 echo "*** Stopping old container ***"
                                 docker rm -f ${PROJECT}_${SERVICE} || true
 
                                 echo "*** Starting new container ***"
-                                docker run -d --name ${PROJECT}_${SERVICE} \\
+                                docker run -d --name ${PROJECT}_${SERVICE} --network ${PROJECT} \\
                                     -v /var/run/docker.sock:/tmp/docker.sock:ro \\
                                     -v ${PROJECT}-certificates:/etc/nginx/certs \\
                                     -e HOSTNAME=${HOSTNAME} \\
@@ -219,24 +224,36 @@ pipeline {
                     ]) {
                         sh """
                             sshpass -p '${HOST_PASS}' ssh -o StrictHostKeyChecking=no ${HOST_USER}@${TARGET_HOST} '
+                                echo "*** Logging into registry ***"
+                                echo "${REG_PASS}" | docker login ${CONTAINER_REGISTRY} -u "${REG_USER}" --password-stdin
+
+                                echo "*** Pulling image ${IMAGE_TAG} ***"
+                                docker pull ${CONTAINER_REGISTRY}/${REPOSITORY}-${SERVICE}:${IMAGE_TAG}
 
                                 echo "*** Prepare named volume ***"
                                 mkdir -p "${DATASTORE_VOLUME}"
                                 docker volume create --driver local \\
                                     --opt type=none \\
                                     --opt device=${DATASTORE_VOLUME}\\
-                                    --opt o=bind ${PROJECT}-${SERVICE}-data || true
+                                    --opt o=bind ${PROJECT}-datastore || true
+
+                                echo "*** Ensure named network exists ***"
+                                docker network inspect ${PROJECT} >/dev/null 2>&1 || \\
+                                docker network create --driver bridge ${PROJECT}
 
                                 echo "*** Stopping old container ***"
                                 docker rm -f ${PROJECT}_${SERVICE} || true
 
                                 echo "*** Starting new container ***"
-                                docker run -d --name ${PROJECT}_${SERVICE} \\
+                                docker run -d --name ${PROJECT}_${SERVICE} --network ${PROJECT} \\
+                                    -v /var/run/docker.sock:/tmp/docker.sock:ro \\
+                                    -v ${PROJECT}-datastore:/var/lib/mysql \\
+                                    -v ${PROJECT}-datastore-state:/app/state \\
+                                    -e VERBOSE=${VERBOSE} \\
+                                    -e DB_PORT=${DB_PORT} \\
                                     -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
-                                    -e MYSQL_ROOT_PASSWORD='${DB_PASS}' \\
-                                    -v ${PROJECT}-${SERVICE}-data:/var/lib/mysql \\
                                     --restart unless-stopped \\
-                                mysql:8.0
+                                    ${CONTAINER_REGISTRY}/${REPOSITORY}-${SERVICE}:${IMAGE_TAG}
 
                                 echo "*** Deployment complete ***"
                             '

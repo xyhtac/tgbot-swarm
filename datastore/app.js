@@ -1,15 +1,25 @@
 const Docker = require('dockerode');
 const mysql = require('mysql2/promise');
 
+
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || '/tmp/docker.sock';
 const DB_PORT = parseInt(process.env.DB_PORT || '3306', 10);
 const MYSQL_ROOT_PASSWORD = process.env.MYSQL_ROOT_PASSWORD;
 const VERBOSE = (process.env.VERBOSE || 'false').toLowerCase() === 'true';
 
 const docker = new Docker({ socketPath: DOCKER_SOCKET });
-const dbMap = new Map();
 
-async function getRootConnection() {
+
+if (!MYSQL_ROOT_PASSWORD) {
+    console.error('[FATAL] MYSQL_ROOT_PASSWORD is required');
+    process.exit(1);
+}
+
+function log(...args) {
+    if (VERBOSE) console.log('[DBCTL]', ...args);
+}
+
+async function getDb() {
     return mysql.createConnection({
         host: '127.0.0.1',
         port: DB_PORT,
@@ -19,51 +29,63 @@ async function getRootConnection() {
     });
 }
 
-async function applyDbConfig(dbName, dbPass) {
-    const conn = await getRootConnection();
-    try {
-        await conn.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``);
-        await conn.query(`CREATE USER IF NOT EXISTS ?@'%' IDENTIFIED BY ?`, [dbName, dbPass]);
-        await conn.query(`ALTER USER ?@'%' IDENTIFIED BY ?`, [dbName, dbPass]);
-        await conn.query(`GRANT ALL PRIVILEGES ON \`${dbName}\`.* TO ?@'%'`, [dbName]);
-        await conn.query('FLUSH PRIVILEGES');
-        if (VERBOSE) console.log(`[DB] Applied config: ${dbName}`);
-    } finally {
-        await conn.end();
-    }
+async function reconcile(store, pass) {
+    log(`Reconciling DB=${store}`);
+
+    const conn = await getDb();
+
+    await conn.query(`
+        CREATE DATABASE IF NOT EXISTS \`${store}\`;
+        CREATE USER IF NOT EXISTS '${store}'@'%' IDENTIFIED BY '${pass}';
+        ALTER USER '${store}'@'%' IDENTIFIED BY '${pass}';
+        GRANT ALL PRIVILEGES ON \`${store}\`.* TO '${store}'@'%';
+        FLUSH PRIVILEGES;
+    `);
+
+    await conn.end();
+    log(`DB ready: ${store}`);
 }
 
-async function handleContainerEvent(event) {
+async function handleContainer(containerId) {
     try {
-        const container = docker.getContainer(event.id);
+        const container = docker.getContainer(containerId);
         const info = await container.inspect();
-        const env = info.Config.Env || [];
-        const envObj = Object.fromEntries(env.map(e => e.split('=')));
 
-        const dbName = envObj.SWARM_DB_STORE;
-        const dbPass = envObj.SWARM_DB_PASS;
+        const env = Object.fromEntries(
+            (info.Config.Env || []).map(e => e.split('=', 2))
+        );
 
-        if (!dbName || !dbPass) return;
+        if (!env.SWARM_DB_STORE || !env.SWARM_DB_PASS) return;
 
-        dbMap.set(dbName, dbPass);
-        await applyDbConfig(dbName, dbPass);
+        await reconcile(env.SWARM_DB_STORE, env.SWARM_DB_PASS);
     } catch (err) {
-        console.error('[ERROR] Docker event handler:', err.message);
+        console.error('[ERROR]', err.message);
     }
 }
 
-// Subscribe to Docker events
+// Initial scan
+async function scanExisting() {
+    const containers = await docker.listContainers({ all: true });
+    for (const c of containers) {
+        await handleContainer(c.Id);
+    }
+}
+
+// Docker events
 docker.getEvents({}, (err, stream) => {
-    if (err) throw err;
-    stream.on('data', chunk => {
-        const event = JSON.parse(chunk.toString('utf8'));
-        if (['start', 'die', 'destroy'].includes(event.status)) handleContainerEvent(event);
+    if (err) {
+        console.error('[FATAL] Docker events failed:', err);
+        process.exit(1);
+    }
+
+    stream.on('data', async buf => {
+        try {
+            const evt = JSON.parse(buf.toString());
+            if (evt.Type === 'container' && ['start', 'update'].includes(evt.Action)) {
+                await handleContainer(evt.id);
+            }
+        } catch (_) {}
     });
 });
 
-// Apply config for existing containers on startup
-(async () => {
-    const containers = await docker.listContainers({ all: true });
-    for (const c of containers) await handleContainerEvent({ id: c.Id, status: 'start' });
-    console.log('[INIT] Controller ready, monitoring docker.sock for DB changes');
-})();
+scanExisting();

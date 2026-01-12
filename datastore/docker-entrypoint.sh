@@ -1,36 +1,31 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -e
 
-STATE_DIR="/app/state"
+echo "[INIT] Starting MariaDB + Swarm DB controller"
 DOCKER_SOCKET="${DOCKER_SOCKET:-/tmp/docker.sock}"
 DB_PORT="${DB_PORT:-3306}"
 
-mkdir -p "$STATE_DIR"
-
-# MySQL root password handling
-MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-}"
-if [[ -z "$MYSQL_ROOT_PASSWORD" ]]; then
-    if [[ -f "$STATE_DIR/mysql-root.secret" ]]; then
-        MYSQL_ROOT_PASSWORD=$(<"$STATE_DIR/mysql-root.secret")
-    else
-        MYSQL_ROOT_PASSWORD=$(openssl rand -base64 32)
-        echo "$MYSQL_ROOT_PASSWORD" > "$STATE_DIR/mysql-root.secret"
-        chmod 600 "$STATE_DIR/mysql-root.secret"
-        echo "[INIT] Generated MySQL root password and saved to state"
-    fi
+# Generate root password if missing
+if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
+  MYSQL_ROOT_PASSWORD="$(openssl rand -base64 24)"
+  export MYSQL_ROOT_PASSWORD
+  echo "[INIT] Generated MySQL root password"
 fi
-export MYSQL_ROOT_PASSWORD
 
-# Start MySQL in background
-echo "[INIT] Starting MySQL..."
-mysqld_safe --port=$DB_PORT &
+# Start MariaDB in background
+docker-entrypoint.sh mysqld &
+MYSQL_PID=$!
 
-# Wait for MySQL to become ready
-until mysqladmin ping -h 127.0.0.1 --silent; do
-    sleep 1
+# Wait for DB
+echo "[INIT] Waiting for MariaDB..."
+until mysqladmin ping -uroot -p"$MYSQL_ROOT_PASSWORD" --silent; do
+  sleep 1
 done
-echo "[INIT] MySQL ready on port $DB_PORT"
 
-# Start Node controller
-echo "[INIT] Starting Node controller..."
-exec node /app/app.js
+echo "[INIT] MariaDB is ready"
+
+# Start controller
+echo "[INIT] Starting Node controller"
+node /app/app.js &
+
+wait $MYSQL_PID

@@ -1,27 +1,25 @@
-# Base image with Node 20 and MySQL 8
-FROM node:20-bullseye
+FROM mariadb:10.11
 
-# Install MySQL
+# Install Node.js + required tools
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server openssl && \
+    apt-get install -y curl ca-certificates openssl && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-# Working directory
 WORKDIR /app
 
-# Copy Node dependencies and install
-COPY package.json ./
-RUN npm install 
+# Install controller dependencies
+COPY package.json package-lock.json* ./
+RUN npm install --production
 
-# Copy app code
-COPY . .
+# Copy controller source
+COPY app.js entrypoint.sh ./
+RUN chmod +x /app/entrypoint.sh
 
-# Expose default ports (MySQL + controller dynamic port)
+# MariaDB data volume
+VOLUME ["/var/lib/mysql"]
+
 EXPOSE ${DB_PORT:-3306}
 
-# Entrypoint
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["node", "/app/app.js"]
+ENTRYPOINT ["/app/entrypoint.sh"]

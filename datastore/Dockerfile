@@ -15,10 +15,13 @@ COPY package.json ./
 RUN npm install --production
 
 # Copy app code
-COPY . .
+COPY . ./
 
 # Expose DB port
 EXPOSE ${DB_PORT:-3306}
+
+# Make it executable
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Entrypoint
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

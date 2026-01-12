@@ -22,4 +22,4 @@ VOLUME ["/var/lib/mysql"]
 
 EXPOSE ${DB_PORT:-3306}
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

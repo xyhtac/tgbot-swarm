@@ -39,7 +39,7 @@ location /${swarmPath}/ {
 	  proxy_ssl_server_name on;
 	  proxy_ssl_name $host;
 
-    proxy_pass https://${info.ip}:${info.port}/;
+    proxy_pass https://${info.ip}:${info.port}/${swarmPath}/;
 }
 `).join('\n');
 }

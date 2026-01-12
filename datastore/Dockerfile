@@ -8,13 +8,13 @@ RUN apk add --no-cache mariadb mariadb-client bash openssl curl
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json ./
+COPY package.json ./
 
 # Install Node dependencies
 RUN npm install
 
 # Copy application code
-COPY . .
+COPY . ./
 
 # Make entrypoint executable
 RUN chmod +x /app/docker-entrypoint.sh

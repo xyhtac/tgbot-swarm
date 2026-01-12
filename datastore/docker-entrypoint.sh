@@ -28,6 +28,9 @@ echo "[INIT] Starting MariaDB..."
 chown -R mysql:mysql /var/lib/mysql
 chmod 700 /var/lib/mysql
 
+mkdir -p /run/mysqld
+chown -R mysql:mysql /run/mysqld
+
 if [ ! -d "/var/lib/mysql/mysql" ]; then
     mariadb-install-db --user=mysql --datadir=/var/lib/mysql
 fi
@@ -39,22 +42,20 @@ fi
 # Start MariaDB in background
 
 mysqld --port=$DB_PORT --user=mysql --datadir=/var/lib/mysql &
-MYSQL_PID=$!
+DB_PID=$!
 
 # mysqld_safe --datadir=/var/lib/mysql &
 
-# Wait until ready
-until mysqladmin ping -h 127.0.0.1 --silent; do
+
+
+until mariadb-admin ping --host=127.0.0.1 --user=root --password="${MYSQL_ROOT_PASSWORD}" &>/dev/null; do
     echo "Waiting for database..."
     sleep 1
 done
 
-# Start Node.js DB controller
-node /app/app.js
-
-# Wait a few seconds for DB to start
-sleep 5
-
 # Start Node application
 echo "[INIT] Starting DB controller app..."
-exec node /app/app.js
+node /app/app.js
+
+# Wait for DB to exit
+wait $DB_PID

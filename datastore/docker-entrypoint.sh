@@ -1,34 +1,41 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
-# Default DB port if not defined
+STATE_DIR=/app/state
+STATE_FILE="${STATE_DIR}/.env"
+
+# Ensure state dir exists
+mkdir -p "$STATE_DIR"
+
+# Default DB port
 DB_PORT="${DB_PORT:-3306}"
+export DB_PORT
 
-# Default root password, generate if missing
-MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-$(openssl rand -hex 16)}"
+# Generate root password if not exists
+if [ -f "$STATE_FILE" ]; then
+    # Load saved state
+    export $(grep -v '^#' "$STATE_FILE" | xargs)
+else
+    if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
+        MYSQL_ROOT_PASSWORD=$(openssl rand -hex 16)
+    fi
+    echo "MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD" > "$STATE_FILE"
+    chmod 600 "$STATE_FILE"
+fi
 
-# Initialize MariaDB data dir if empty
+echo "[INIT] Starting MariaDB..."
+# Initialize MariaDB data directory if needed
 if [ ! -d "/var/lib/mysql/mysql" ]; then
-    echo "[INIT] Initializing MariaDB database..."
-    mysqld --initialize-insecure --user=mysql --datadir=/var/lib/mysql
+    mariadb-install-db --user=mysql --datadir=/var/lib/mysql
 fi
 
 # Start MariaDB in background
-echo "[INIT] Starting MariaDB..."
-mysqld_safe --datadir=/var/lib/mysql --skip-networking=0 --port=${DB_PORT} &
+mysqld --user=mysql --port=$DB_PORT --datadir=/var/lib/mysql &
 MYSQL_PID=$!
 
-# Wait for DB to be ready
-until mysqladmin ping --silent; do
-    sleep 1
-done
+# Wait a few seconds for DB to start
+sleep 5
 
-echo "[INIT] Setting root password..."
-mysql -uroot <<-EOSQL
-    ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
-    FLUSH PRIVILEGES;
-EOSQL
-
-# Launch Node.js controller, logs to stdout/stderr
-echo "[INIT] Starting DB controller..."
-exec node app.js
+# Start Node application
+echo "[INIT] Starting DB controller app..."
+exec node /app/app.js

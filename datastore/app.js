@@ -1,24 +1,46 @@
+#!/usr/bin/env node
+
 const Docker = require('dockerode');
 const mysql = require('mysql2/promise');
+const fs = require('fs');
+const path = require('path');
 
-
-const DOCKER_SOCKET = process.env.DOCKER_SOCKET || '/tmp/docker.sock';
+// ---- ENV & STATE ----
+const STATE_FILE = '/app/state/.env';
 const DB_PORT = parseInt(process.env.DB_PORT || '3306', 10);
-const MYSQL_ROOT_PASSWORD = process.env.MYSQL_ROOT_PASSWORD;
-const VERBOSE = (process.env.VERBOSE || 'false').toLowerCase() === 'true';
+const VERBOSE = (process.env.VERBOSE || '0') === '1';
+const DOCKER_SOCKET = process.env.DOCKER_SOCKET || '/tmp/docker.sock';
 
-const docker = new Docker({ socketPath: DOCKER_SOCKET });
-
+// Load MYSQL_ROOT_PASSWORD from ENV or state file
+let MYSQL_ROOT_PASSWORD = process.env.MYSQL_ROOT_PASSWORD;
+if (!MYSQL_ROOT_PASSWORD && fs.existsSync(STATE_FILE)) {
+    const lines = fs.readFileSync(STATE_FILE, 'utf8').split('\n');
+    for (const line of lines) {
+        const [k, v] = line.split('=', 2);
+        if (k === 'MYSQL_ROOT_PASSWORD') MYSQL_ROOT_PASSWORD = v;
+    }
+}
 
 if (!MYSQL_ROOT_PASSWORD) {
-    console.error('[FATAL] MYSQL_ROOT_PASSWORD is required');
+    console.error('[FATAL] MYSQL_ROOT_PASSWORD is not set!');
     process.exit(1);
 }
 
+// Docker client
+const docker = new Docker({ socketPath: DOCKER_SOCKET });
+
+// Logging helper
 function log(...args) {
     if (VERBOSE) console.log('[DBCTL]', ...args);
 }
 
+// ---- FILTER FUNCTION ----
+function filterSQLVar(val) {
+    if (typeof val !== 'string') return '';
+    return val.replace(/[^a-zA-Z0-9_\-]/g, '');
+}
+
+// ---- DB CONNECTION ----
 async function getDb() {
     return mysql.createConnection({
         host: '127.0.0.1',
@@ -29,53 +51,36 @@ async function getDb() {
     });
 }
 
+// ---- RECONCILE FUNCTION ----
 async function reconcile(store, pass) {
+    store = filterSQLVar(store);
+    pass = String(pass); // allow any characters in password
+
     log(`Reconciling DB: ${store}`);
 
-    const conn = await getDb(); // assumes getDb() returns a mysql2/promise connection
+    const conn = await getDb();
 
     try {
-        // Create database if it doesn't exist
+        // Create DB if not exists
         await conn.query(`CREATE DATABASE IF NOT EXISTS \`${store}\`;`);
 
-        // Create user if it doesn't exist, then update password
+        // Create/alter user with all-host wildcard
         await conn.query(`CREATE USER IF NOT EXISTS ?@'%' IDENTIFIED BY ?;`, [store, pass]);
         await conn.query(`ALTER USER ?@'%' IDENTIFIED BY ?;`, [store, pass]);
 
-        // Grant privileges on the database
+        // Grant privileges
         await conn.query(`GRANT ALL PRIVILEGES ON \`${store}\`.* TO ?@'%';`, [store]);
-
-        // Apply changes immediately
         await conn.query(`FLUSH PRIVILEGES;`);
 
         log(`DB and user ready: ${store}@%`);
     } catch (err) {
-        log(`Error reconciling DB ${store}: ${err.message}`);
-        throw err;
+        console.error('[ERROR] Reconcile failed:', err.message);
     } finally {
         await conn.end();
     }
 }
 
-/*
-async function reconcile(store, pass) {
-    log(`Reconciling DB=${store}`);
-
-    const conn = await getDb();
-
-    await conn.query(`
-        CREATE DATABASE IF NOT EXISTS \`${store}\`;
-        CREATE USER IF NOT EXISTS '${store}'@'%' IDENTIFIED BY '${pass}';
-        ALTER USER '${store}'@'%' IDENTIFIED BY '${pass}';
-        GRANT ALL PRIVILEGES ON \`${store}\`.* TO '${store}'@'%';
-        FLUSH PRIVILEGES;
-    `);
-
-    await conn.end();
-    log(`DB ready: ${store}`);
-}
-*/
-
+// ---- HANDLE CONTAINER EVENT ----
 async function handleContainer(containerId) {
     try {
         const container = docker.getContainer(containerId);
@@ -89,11 +94,11 @@ async function handleContainer(containerId) {
 
         await reconcile(env.SWARM_DB_STORE, env.SWARM_DB_PASS);
     } catch (err) {
-        console.error('[ERROR]', err.message);
+        console.error('[ERROR] Container handling failed:', err.message);
     }
 }
 
-// Initial scan
+// ---- INITIAL SCAN ----
 async function scanExisting() {
     const containers = await docker.listContainers({ all: true });
     for (const c of containers) {
@@ -101,10 +106,10 @@ async function scanExisting() {
     }
 }
 
-// Docker events
+// ---- DOCKER EVENTS ----
 docker.getEvents({}, (err, stream) => {
     if (err) {
-        console.error('[FATAL] Docker events failed:', err);
+        console.error('[FATAL] Docker events failed:', err.message);
         process.exit(1);
     }
 
@@ -118,4 +123,5 @@ docker.getEvents({}, (err, stream) => {
     });
 });
 
+// Start initial scan
 scanExisting();

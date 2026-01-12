@@ -23,9 +23,6 @@ pipeline {
         // General Configuration
         VERBOSE                 = "1"
         PROXY_PORT              = "8443"
-
-        // DATASTRORE service params
-        DB_VOLUME               = "datastore"
         DB_PORT                 = "3306"
         
         // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
@@ -253,10 +250,10 @@ pipeline {
                                     -v ${PROJECT}-datastore-state:/app/state \\
                                     -e VERBOSE=${VERBOSE} \\
                                     -e DB_PORT=${DB_PORT} \\
-                                    -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                     --restart unless-stopped \\
                                     ${CONTAINER_REGISTRY}/${REPOSITORY}-${SERVICE}:${IMAGE_TAG}
 
+                                    # -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                 echo "*** Deployment complete ***"
                             '
                         """

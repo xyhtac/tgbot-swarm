@@ -1,27 +1,27 @@
-# Use Node 20 on Debian slim
-FROM node:20-slim
+# Use Node 20 alpine as base
+FROM node:20-alpine
+
+# Install MariaDB client and server, bash, openssl
+RUN apk add --no-cache mariadb mariadb-client bash openssl curl
 
 # Set workdir
 WORKDIR /app
 
-# Install MariaDB client & server and required tools
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        mariadb-server mariadb-client openssl && \
-    rm -rf /var/lib/apt/lists/*
+# Copy package files
+COPY package.json package-lock.json ./
 
-# Copy package.json and install Node dependencies
-COPY package.json ./
-RUN npm install --production
+# Install Node dependencies
+RUN npm install
 
-# Copy app code
-COPY . ./
+# Copy application code
+COPY . .
 
-# Expose DB port
-EXPOSE ${DB_PORT:-3306}
-
-# Make it executable
+# Make entrypoint executable
 RUN chmod +x /app/docker-entrypoint.sh
+
+# Expose database port (from env)
+ARG DB_PORT=3306
+EXPOSE ${DB_PORT}
 
 # Entrypoint
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

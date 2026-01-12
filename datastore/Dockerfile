@@ -10,12 +10,12 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Install controller dependencies
-COPY package.json package-lock.json* ./
+COPY package.json ./
 RUN npm install --production
 
 # Copy controller source
-COPY app.js entrypoint.sh ./
-RUN chmod +x /app/entrypoint.sh
+COPY app.js docker-entrypoint.sh ./
+RUN chmod +x /app/docker-entrypoint.sh
 
 # MariaDB data volume
 VOLUME ["/var/lib/mysql"]

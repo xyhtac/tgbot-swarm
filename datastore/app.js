@@ -41,7 +41,29 @@ function filterSQLVar(val) {
 }
 
 // ---- DB CONNECTION ----
+async function getDb(retries = 10, delay = 1000) {
+    let conn;
+    for (let i = 0; i < retries; i++) {
+        try {
+            conn = await mysql.createConnection({
+                host: '127.0.0.1',
+                port: DB_PORT,
+                user: 'root',
+                password: MYSQL_ROOT_PASSWORD,
+                multipleStatements: true
+            });
+            return conn;
+        } catch (err) {
+            console.log(`[DBCTL] Waiting for DB... attempt ${i + 1}`);
+            await new Promise(r => setTimeout(r, delay));
+        }
+    }
+    throw new Error('Cannot connect to MariaDB after multiple retries');
+}
+
+/*
 async function getDb() {
+
     return mysql.createConnection({
         host: '127.0.0.1',
         port: DB_PORT,
@@ -50,6 +72,7 @@ async function getDb() {
         multipleStatements: true
     });
 }
+*/
 
 // ---- RECONCILE FUNCTION ----
 async function reconcile(store, pass) {

@@ -25,6 +25,9 @@ fi
 
 echo "[INIT] Starting MariaDB..."
 # Initialize MariaDB data directory if needed
+chown -R mysql:mysql /var/lib/mysql
+chmod 700 /var/lib/mysql
+
 if [ ! -d "/var/lib/mysql/mysql" ]; then
     mariadb-install-db --user=mysql --datadir=/var/lib/mysql
 fi

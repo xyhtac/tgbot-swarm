@@ -1,31 +1,34 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
-echo "[INIT] Starting MariaDB + Swarm DB controller"
-DOCKER_SOCKET="${DOCKER_SOCKET:-/tmp/docker.sock}"
+# Default DB port if not defined
 DB_PORT="${DB_PORT:-3306}"
 
-# Generate root password if missing
-if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
-  MYSQL_ROOT_PASSWORD="$(openssl rand -base64 24)"
-  export MYSQL_ROOT_PASSWORD
-  echo "[INIT] Generated MySQL root password"
+# Default root password, generate if missing
+MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-$(openssl rand -hex 16)}"
+
+# Initialize MariaDB data dir if empty
+if [ ! -d "/var/lib/mysql/mysql" ]; then
+    echo "[INIT] Initializing MariaDB database..."
+    mysqld --initialize-insecure --user=mysql --datadir=/var/lib/mysql
 fi
 
 # Start MariaDB in background
-docker-entrypoint.sh mysqld &
+echo "[INIT] Starting MariaDB..."
+mysqld_safe --datadir=/var/lib/mysql --skip-networking=0 --port=${DB_PORT} &
 MYSQL_PID=$!
 
-# Wait for DB
-echo "[INIT] Waiting for MariaDB..."
-until mysqladmin ping -uroot -p"$MYSQL_ROOT_PASSWORD" --silent; do
-  sleep 1
+# Wait for DB to be ready
+until mysqladmin ping --silent; do
+    sleep 1
 done
 
-echo "[INIT] MariaDB is ready"
+echo "[INIT] Setting root password..."
+mysql -uroot <<-EOSQL
+    ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
+    FLUSH PRIVILEGES;
+EOSQL
 
-# Start controller
-echo "[INIT] Starting Node controller"
-node /app/app.js &
-
-wait $MYSQL_PID
+# Launch Node.js controller, logs to stdout/stderr
+echo "[INIT] Starting DB controller..."
+exec node app.js

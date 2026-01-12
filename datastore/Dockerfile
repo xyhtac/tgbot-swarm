@@ -1,25 +1,24 @@
-FROM mariadb:10.11
+# Use Node 20 on Debian slim
+FROM node:20-slim
 
-# Install Node.js + required tools
-RUN apt-get update && \
-    apt-get install -y curl ca-certificates openssl && \
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/*
-
+# Set workdir
 WORKDIR /app
 
-# Install controller dependencies
+# Install MariaDB client & server and required tools
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        mariadb-server mariadb-client openssl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy package.json and install Node dependencies
 COPY package.json ./
 RUN npm install --production
 
-# Copy controller source
-COPY app.js docker-entrypoint.sh ./
-RUN chmod +x /app/docker-entrypoint.sh
+# Copy app code
+COPY . .
 
-# MariaDB data volume
-VOLUME ["/var/lib/mysql"]
-
+# Expose DB port
 EXPOSE ${DB_PORT:-3306}
 
+# Entrypoint
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

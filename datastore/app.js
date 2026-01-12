@@ -30,6 +30,35 @@ async function getDb() {
 }
 
 async function reconcile(store, pass) {
+    log(`Reconciling DB: ${store}`);
+
+    const conn = await getDb(); // assumes getDb() returns a mysql2/promise connection
+
+    try {
+        // Create database if it doesn't exist
+        await conn.query(`CREATE DATABASE IF NOT EXISTS \`${store}\`;`);
+
+        // Create user if it doesn't exist, then update password
+        await conn.query(`CREATE USER IF NOT EXISTS ?@'%' IDENTIFIED BY ?;`, [store, pass]);
+        await conn.query(`ALTER USER ?@'%' IDENTIFIED BY ?;`, [store, pass]);
+
+        // Grant privileges on the database
+        await conn.query(`GRANT ALL PRIVILEGES ON \`${store}\`.* TO ?@'%';`, [store]);
+
+        // Apply changes immediately
+        await conn.query(`FLUSH PRIVILEGES;`);
+
+        log(`DB and user ready: ${store}@%`);
+    } catch (err) {
+        log(`Error reconciling DB ${store}: ${err.message}`);
+        throw err;
+    } finally {
+        await conn.end();
+    }
+}
+
+/*
+async function reconcile(store, pass) {
     log(`Reconciling DB=${store}`);
 
     const conn = await getDb();
@@ -45,6 +74,7 @@ async function reconcile(store, pass) {
     await conn.end();
     log(`DB ready: ${store}`);
 }
+*/
 
 async function handleContainer(containerId) {
     try {

@@ -42,22 +42,42 @@ fi
 
 # Start MariaDB in background
 
-#mysqld --port=$DB_PORT --user=mysql --datadir=/var/lib/mysql &
-exec mariadbd --user=mysql --datadir=/var/lib/mysql --skip-networking=0 --bind-address=0.0.0.0 --port=$DB_PORT &
+mariadbd \
+  --user=mysql \
+  --datadir=/var/lib/mysql \
+  --skip-networking=0 \
+  --bind-address=0.0.0.0 \
+  --port="$DB_PORT" &
+
 DB_PID=$!
 
-# mysqld_safe --datadir=/var/lib/mysql &
+echo "Waiting for MariaDB..."
+until mariadb-admin ping --host=127.0.0.1 --port="$DB_PORT" --silent; do
+  sleep 1
+done
 
+if [ ! -f /app/state/.root-initialized ]; then
+  echo "Initializing MariaDB root user..."
 
+  mariadb -u root <<EOF
+ALTER USER 'root'@'localhost'
+  IDENTIFIED VIA mysql_native_password
+  USING PASSWORD('${MYSQL_ROOT_PASSWORD}');
+FLUSH PRIVILEGES;
+EOF
 
-until mariadb-admin ping --host=127.0.0.1 --user=root --password="${MYSQL_ROOT_PASSWORD}" &>/dev/null; do
+  touch /app/state/.root-initialized
+fi
+
+echo "Verify network login..."
+until mariadb-admin ping \
+  --host=127.0.0.1 \
+  --port="$DB_PORT" \
+  --user=root \
+  --password="${MYSQL_ROOT_PASSWORD}" &>/dev/null; do
     echo "Waiting for database..."
     sleep 1
 done
 
-# Start Node application
 echo "[INIT] Starting DB controller app..."
-node /app/app.js
-
-# Wait for DB to exit
-wait $DB_PID
+exec node /app/app.js

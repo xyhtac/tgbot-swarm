@@ -5,7 +5,7 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'SERVICE', choices: ['controller', 'datastore' ], description: 'Select single microservice to deploy')
+        choice(name: 'SERVICE', choices: ['swarm', 'datastore' ], description: 'Select single microservice to deploy')
         choice(name: 'REGISTRY_TYPE', choices: ['private', 'dockerhub'], description: 'Push image to Docker.io or to the local repo')
         choice(name: 'IMAGE_TAG', choices: ['latest', 'select'], description: 'Deploy latest build or select build on registry')
 
@@ -23,9 +23,6 @@ pipeline {
         // General Configuration
         VERBOSE                 = "1"
         PROXY_PORT              = "8443"
-
-        // DATASTRORE service params
-        DB_VOLUME               = "datastore"
         DB_PORT                 = "3306"
         
         // Get secrets from jenkins storage: API key, Swarm hostname and SSH password for user jenkins
@@ -67,7 +64,7 @@ pipeline {
 
                     // Define service placement & ports
                     def services = [
-                        "controller": [
+                        "swarm": [
                             host: "backend",
                             containerPort: "${PROXY_PORT}",
                             servicePort:   "${PROXY_PORT}",
@@ -108,10 +105,7 @@ pipeline {
             }
         }
 
-        stage('Select Image for node:controller') {
-            when {
-                expression { env.SERVICE == 'controller' }
-            }            
+        stage('Select Image') {
             steps {
                 script {
                     if ( IMAGE_TAG != "latest" ) {
@@ -148,9 +142,9 @@ pipeline {
                 }
             }
         }
-        stage('Deploy to remote host node:controller') {
+        stage('Deploy to remote host node:swarm') {
             when {
-                expression { env.SERVICE == 'controller' }
+                expression { env.SERVICE == 'swarm' }
             } 
             steps {
                 script {
@@ -217,6 +211,11 @@ pipeline {
                 script {
                     withCredentials([
                         usernamePassword(
+                            credentialsId: "${REGISTRY_CREDENTIALS}",
+                            usernameVariable: 'REG_USER',
+                            passwordVariable: 'REG_PASS'
+                        ),
+                        usernamePassword(
                             credentialsId: "${HOST_CREDENTIALS}",
                             usernameVariable: 'HOST_USER',
                             passwordVariable: 'HOST_PASS'
@@ -251,10 +250,10 @@ pipeline {
                                     -v ${PROJECT}-datastore-state:/app/state \\
                                     -e VERBOSE=${VERBOSE} \\
                                     -e DB_PORT=${DB_PORT} \\
-                                    -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                     --restart unless-stopped \\
                                     ${CONTAINER_REGISTRY}/${REPOSITORY}-${SERVICE}:${IMAGE_TAG}
 
+                                    # -p ${SERVICE_PORT}:${CONTAINER_PORT}/${env.SERVICE_PROTO}  \\
                                 echo "*** Deployment complete ***"
                             '
                         """

@@ -1,36 +1,83 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
 
-STATE_DIR="/app/state"
-DOCKER_SOCKET="${DOCKER_SOCKET:-/tmp/docker.sock}"
-DB_PORT="${DB_PORT:-3306}"
+STATE_DIR=/app/state
+STATE_FILE="${STATE_DIR}/.env"
 
+# Ensure state dir exists
 mkdir -p "$STATE_DIR"
 
-# MySQL root password handling
-MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-}"
-if [[ -z "$MYSQL_ROOT_PASSWORD" ]]; then
-    if [[ -f "$STATE_DIR/mysql-root.secret" ]]; then
-        MYSQL_ROOT_PASSWORD=$(<"$STATE_DIR/mysql-root.secret")
-    else
-        MYSQL_ROOT_PASSWORD=$(openssl rand -base64 32)
-        echo "$MYSQL_ROOT_PASSWORD" > "$STATE_DIR/mysql-root.secret"
-        chmod 600 "$STATE_DIR/mysql-root.secret"
-        echo "[INIT] Generated MySQL root password and saved to state"
+# Default DB port
+DB_PORT="${DB_PORT:-3306}"
+export DB_PORT
+echo "Chosen port ${DB_PORT}"
+
+# Generate root password if not exists
+if [ -f "$STATE_FILE" ]; then
+    # Load saved state
+    export $(grep -v '^#' "$STATE_FILE" | xargs)
+else
+    if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
+        MYSQL_ROOT_PASSWORD=$(openssl rand -hex 16)
     fi
+    echo "MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD" > "$STATE_FILE"
+    chmod 600 "$STATE_FILE"
 fi
-export MYSQL_ROOT_PASSWORD
 
-# Start MySQL in background
-echo "[INIT] Starting MySQL..."
-mysqld_safe --port=$DB_PORT &
+echo "[INIT] Starting MariaDB..."
+# Initialize MariaDB data directory if needed
+chown -R mysql:mysql /var/lib/mysql
+chmod 700 /var/lib/mysql
 
-# Wait for MySQL to become ready
-until mysqladmin ping -h 127.0.0.1 --silent; do
+mkdir -p /run/mysqld
+chown -R mysql:mysql /run/mysqld
+
+if [ ! -d "/var/lib/mysql/mysql" ]; then
+    mariadb-install-db --user=mysql --datadir=/var/lib/mysql
+fi
+
+# Start MariaDB in background
+#mysqld --user=mysql --port=$DB_PORT --datadir=/var/lib/mysql &
+
+
+# Start MariaDB in background
+
+mariadbd \
+  --user=mysql \
+  --datadir=/var/lib/mysql \
+  --skip-networking=0 \
+  --bind-address=0.0.0.0 \
+  --port="$DB_PORT" &
+
+DB_PID=$!
+
+echo "Waiting for MariaDB..."
+until mariadb-admin ping --host=127.0.0.1 --port="$DB_PORT" --silent; do
+  sleep 1
+done
+
+if [ ! -f /app/state/.root-initialized ]; then
+  echo "Initializing MariaDB root user..."
+
+  mariadb -u root <<EOF
+ALTER USER 'root'@'localhost'
+  IDENTIFIED VIA mysql_native_password
+  USING PASSWORD('${MYSQL_ROOT_PASSWORD}');
+FLUSH PRIVILEGES;
+EOF
+
+  touch /app/state/.root-initialized
+fi
+
+echo "Verify network login..."
+until mariadb-admin ping \
+  --host=127.0.0.1 \
+  --port="$DB_PORT" \
+  --user=root \
+  --password="${MYSQL_ROOT_PASSWORD}" &>/dev/null; do
+    echo "Waiting for database..."
     sleep 1
 done
-echo "[INIT] MySQL ready on port $DB_PORT"
 
-# Start Node controller
-echo "[INIT] Starting Node controller..."
+echo "[INIT] Starting DB controller app..."
 exec node /app/app.js

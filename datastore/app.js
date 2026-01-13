@@ -1,15 +1,69 @@
+#!/usr/bin/env node
+
 const Docker = require('dockerode');
 const mysql = require('mysql2/promise');
+const fs = require('fs');
+const path = require('path');
 
-const DOCKER_SOCKET = process.env.DOCKER_SOCKET || '/tmp/docker.sock';
+// ---- ENV & STATE ----
+const STATE_FILE = '/app/state/.env';
 const DB_PORT = parseInt(process.env.DB_PORT || '3306', 10);
-const MYSQL_ROOT_PASSWORD = process.env.MYSQL_ROOT_PASSWORD;
-const VERBOSE = (process.env.VERBOSE || 'false').toLowerCase() === 'true';
+const VERBOSE = (process.env.VERBOSE || '0') === '1';
+const DOCKER_SOCKET = process.env.DOCKER_SOCKET || '/tmp/docker.sock';
 
+// Load MYSQL_ROOT_PASSWORD from ENV or state file
+let MYSQL_ROOT_PASSWORD = process.env.MYSQL_ROOT_PASSWORD;
+if (!MYSQL_ROOT_PASSWORD && fs.existsSync(STATE_FILE)) {
+    const lines = fs.readFileSync(STATE_FILE, 'utf8').split('\n');
+    for (const line of lines) {
+        const [k, v] = line.split('=', 2);
+        if (k === 'MYSQL_ROOT_PASSWORD') MYSQL_ROOT_PASSWORD = v;
+    }
+}
+
+if (!MYSQL_ROOT_PASSWORD) {
+    console.error('[FATAL] MYSQL_ROOT_PASSWORD is not set!');
+    process.exit(1);
+}
+
+// Docker client
 const docker = new Docker({ socketPath: DOCKER_SOCKET });
-const dbMap = new Map();
 
-async function getRootConnection() {
+// Logging helper
+function log(...args) {
+    if (VERBOSE) console.log('[DBCTL]', ...args);
+}
+
+// ---- FILTER FUNCTION ----
+function filterSQLVar(val) {
+    if (typeof val !== 'string') return '';
+    return val.replace(/[^a-zA-Z0-9_\-]/g, '');
+}
+
+// ---- DB CONNECTION ----
+async function getDb(retries = 10, delay = 1000) {
+    let conn;
+    for (let i = 0; i < retries; i++) {
+        try {
+            conn = await mysql.createConnection({
+                host: '127.0.0.1',
+                port: DB_PORT,
+                user: 'root',
+                password: MYSQL_ROOT_PASSWORD,
+                multipleStatements: true
+            });
+            return conn;
+        } catch (err) {
+            console.log(`[DBCTL] Waiting for DB... attempt ${i + 1}`);
+            await new Promise(r => setTimeout(r, delay));
+        }
+    }
+    throw new Error('Cannot connect to MariaDB after multiple retries');
+}
+
+/*
+async function getDb() {
+
     return mysql.createConnection({
         host: '127.0.0.1',
         port: DB_PORT,
@@ -18,52 +72,79 @@ async function getRootConnection() {
         multipleStatements: true
     });
 }
+*/
 
-async function applyDbConfig(dbName, dbPass) {
-    const conn = await getRootConnection();
+// ---- RECONCILE FUNCTION ----
+async function reconcile(store, pass) {
+    store = filterSQLVar(store);
+    pass = String(pass); // allow any characters in password
+
+    log(`Reconciling DB: ${store}`);
+
+    const conn = await getDb();
+
     try {
-        await conn.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``);
-        await conn.query(`CREATE USER IF NOT EXISTS ?@'%' IDENTIFIED BY ?`, [dbName, dbPass]);
-        await conn.query(`ALTER USER ?@'%' IDENTIFIED BY ?`, [dbName, dbPass]);
-        await conn.query(`GRANT ALL PRIVILEGES ON \`${dbName}\`.* TO ?@'%'`, [dbName]);
-        await conn.query('FLUSH PRIVILEGES');
-        if (VERBOSE) console.log(`[DB] Applied config: ${dbName}`);
+        // Create DB if not exists
+        await conn.query(`CREATE DATABASE IF NOT EXISTS \`${store}\`;`);
+
+        // Create/alter user with all-host wildcard
+        await conn.query(`CREATE USER IF NOT EXISTS ?@'%' IDENTIFIED BY ?;`, [store, pass]);
+        await conn.query(`ALTER USER ?@'%' IDENTIFIED BY ?;`, [store, pass]);
+
+        // Grant privileges
+        await conn.query(`GRANT ALL PRIVILEGES ON \`${store}\`.* TO ?@'%';`, [store]);
+        await conn.query(`FLUSH PRIVILEGES;`);
+
+        log(`DB and user ready: ${store}@%`);
+    } catch (err) {
+        console.error('[ERROR] Reconcile failed:', err.message);
     } finally {
         await conn.end();
     }
 }
 
-async function handleContainerEvent(event) {
+// ---- HANDLE CONTAINER EVENT ----
+async function handleContainer(containerId) {
     try {
-        const container = docker.getContainer(event.id);
+        const container = docker.getContainer(containerId);
         const info = await container.inspect();
-        const env = info.Config.Env || [];
-        const envObj = Object.fromEntries(env.map(e => e.split('=')));
 
-        const dbName = envObj.SWARM_DB_STORE;
-        const dbPass = envObj.SWARM_DB_PASS;
+        const env = Object.fromEntries(
+            (info.Config.Env || []).map(e => e.split('=', 2))
+        );
 
-        if (!dbName || !dbPass) return;
+        if (!env.SWARM_DB_STORE || !env.SWARM_DB_PASS) return;
 
-        dbMap.set(dbName, dbPass);
-        await applyDbConfig(dbName, dbPass);
+        await reconcile(env.SWARM_DB_STORE, env.SWARM_DB_PASS);
     } catch (err) {
-        console.error('[ERROR] Docker event handler:', err.message);
+        console.error('[ERROR] Container handling failed:', err.message);
     }
 }
 
-// Subscribe to Docker events
+// ---- INITIAL SCAN ----
+async function scanExisting() {
+    const containers = await docker.listContainers({ all: true });
+    for (const c of containers) {
+        await handleContainer(c.Id);
+    }
+}
+
+// ---- DOCKER EVENTS ----
 docker.getEvents({}, (err, stream) => {
-    if (err) throw err;
-    stream.on('data', chunk => {
-        const event = JSON.parse(chunk.toString('utf8'));
-        if (['start', 'die', 'destroy'].includes(event.status)) handleContainerEvent(event);
+    if (err) {
+        console.error('[FATAL] Docker events failed:', err.message);
+        process.exit(1);
+    }
+
+    stream.on('data', async buf => {
+        try {
+            const evt = JSON.parse(buf.toString());
+            if (evt.Type === 'container' && ['start', 'update'].includes(evt.Action)) {
+                await handleContainer(evt.id);
+            }
+        } catch (_) {}
     });
 });
 
-// Apply config for existing containers on startup
-(async () => {
-    const containers = await docker.listContainers({ all: true });
-    for (const c of containers) await handleContainerEvent({ id: c.Id, status: 'start' });
-    console.log('[INIT] Controller ready, monitoring docker.sock for DB changes');
-})();
+// Start initial scan
+scanExisting();

@@ -42,7 +42,8 @@ fi
 
 # Start MariaDB in background
 
-mysqld --port=$DB_PORT --user=mysql --datadir=/var/lib/mysql &
+#mysqld --port=$DB_PORT --user=mysql --datadir=/var/lib/mysql &
+exec mariadbd --user=mysql --datadir=/var/lib/mysql --skip-networking=0 --bind-address=0.0.0.0 --port=$DB_PORT &
 DB_PID=$!
 
 # mysqld_safe --datadir=/var/lib/mysql &

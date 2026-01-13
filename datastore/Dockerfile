@@ -19,11 +19,6 @@ RUN npm install
 # Copy application code
 COPY . ./
 
-# Override network disable
-RUN mkdir -p /etc/my.cnf.d && \
-    printf "[mysqld]\nskip-networking=0\nbind-address=0.0.0.0\nport=${DB_PORT}\n" \
-    > /etc/my.cnf.d/99-docker.cnf
-
 # Make entrypoint executable
 RUN chmod +x /app/docker-entrypoint.sh
 

@@ -59,7 +59,10 @@ docker run -d --name tgbot-swarm-samplebot \
     --restart unless-stopped \
     --network tgbot-swarm \
     -e BOT_TOKEN=[SECRET_BOT_TOKEN] \
-    -e SWARM_PATH=examplebot \
+    -e SWARM_DB_PASS=[SECRET_DB_PASSWORD] \
+    -e SWARM_DB_HOST=tgbot-swarm-datastore \
+    -e SWARM_DB_STORE=samplebot \
+    -e SWARM_PATH=samplebot \
     -e SWARM_PORT=3300 \
     -v tgbot-swarm-certificates:/app/certs:ro \
     -p 3300:3300/tcp  \

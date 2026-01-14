@@ -1,4 +1,4 @@
-![](https://images4.imagebam.com/49/a5/01/MEQST5U_o.jpg)
+![](img/swarm-head-2.jpg)
 Run multiple Telegram bots on a single host
 
 [![tgbot-swarm-2.0](https://img.shields.io/badge/dev-tgbot_swarm_2.0-7a00b9)](https://github.com/xyhtac/tgbot-swarm/releases/tag/v.2.0)

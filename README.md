@@ -1,5 +1,5 @@
 ![](img/swarm-head-2.jpg)
-Run multiple Telegram bots on a single host
+Run multiple stateful Telegram bots on a single host
 
 [![tgbot-swarm-2.0](https://img.shields.io/badge/dev-tgbot_swarm_2.0-7a00b9)](https://github.com/xyhtac/tgbot-swarm/releases/tag/v.2.0)
 

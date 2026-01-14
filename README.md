@@ -6,37 +6,68 @@ Run multiple Telegram bots on a single host
 ### TL&DR.
 tgbot-swarm sets up a container running nginx and nodejs controller that generates reverse proxy configs for nginx and reloads nginx when containers are started and stopped. It also creates self-signed certificate and exposes it through docker shared volume, making it easy to start multiple containers serving independent Telegram bots on a single host.
 
-Step 1. Create a named volume for certificates
+### Usage
+
 ```
+# Create a named volume for certificates
 mkdir -p "/opt/swarm-certificate" \
 docker volume create --driver local \
     --opt type=none \
     --opt device=/opt/swarm-certificate \
     --opt o=bind tgbot-swarm-certificates
-```
 
-Step 2. Spin up a controller
-```
+# Create a named volume for databases
+mkdir -p "/opt/swarm-datastore" \
+docker volume create --driver local \
+    --opt type=none \
+    --opt device=/opt/swarm-datastore \
+    --opt o=bind tgbot-swarm-datastore
+
+# Create a named volume for datastore controller state
+mkdir -p "/opt/swarm-datastore-state" \
+docker volume create --driver local \
+    --opt type=none \
+    --opt device=/opt/swarm-datastore-state \
+    --opt o=bind tgbot-swarm-datastore-state
+
+# Ensure a named network exists
+docker network inspect tgbot-swarm >/dev/null 2>&1 || \\
+docker network create --driver bridge tgbot-swarm
+
+# Spin up tgbot-swarm nginx + controller
 docker run -d --name tgbot-swarm-controller \
+    --restart unless-stopped \
+    --network tgbot-swarm \
     -v /var/run/docker.sock:/tmp/docker.sock:ro \
     -v tgbot-swarm-certificates:/etc/nginx/certs \
     -e HOSTNAME=foo.bar.com \
     -p 443:443/tcp  \
-    --restart unless-stopped \
 xyhtac/tgbot-swarm:latest
-```
 
+# Spin up tgbot-swarm mariadb + controller
+docker run -d --name tgbot-swarm-datastore \
+    --restart unless-stopped \
+    --network tgbot-swarm \
+    -v /var/run/docker.sock:/tmp/docker.sock:ro \
+    -v tgbot-swarm-datastore:/var/lib/mysql \
+    -v tgbot-swarm-datastore-state:/app/state \
+    -e DB_PORT=3306 \
+xyhtac/tgbot-swarm-datastore:latest
 
-Step 3. Spin up example bot
-```
+# Spin up an example Telegram bot
 docker run -d --name tgbot-swarm-samplebot \
+    --restart unless-stopped \
+    --network tgbot-swarm \
     -e BOT_TOKEN=[SECRET_BOT_TOKEN] \
-    -e SWARM_PATH=examplebot \
+    -e SWARM_DB_PASS=[SECRET_DB_PASSWORD] \
+    -e SWARM_DB_HOST=tgbot-swarm-datastore \
+    -e SWARM_DB_STORE=samplebot \
+    -e SWARM_PATH=samplebot \
     -e SWARM_PORT=3300 \
     -v tgbot-swarm-certificates:/app/certs:ro \
     -p 3300:3300/tcp  \
-    --restart unless-stopped \
 xyhtac/tgbot-swarm-samplebot:latest
+
 ```
 
 

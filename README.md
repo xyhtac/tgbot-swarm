@@ -6,6 +6,19 @@ Run multiple stateful Telegram bots on a single host
 ### TL&DR.
 tgbot-swarm sets up a container running nginx and nodejs controller that generates reverse proxy configs for nginx and reloads nginx when containers are started and stopped. It also creates self-signed certificate and exposes it through docker shared volume, making it easy to start multiple containers serving independent Telegram bots on a single host.
 
+
+```
+git clone https://github.com/xyhtac/tgbot-swarm.git
+cd tgbot-swarm
+sudo mkdir -p \
+  /opt/swarm-certificate \
+  /opt/swarm-datastore \
+  /opt/swarm-datastore-state
+export BOT_TOKEN=telegram_bot_token
+export SWARM_DB_PASS=database_password_for_bot_application
+docker compose up -d
+```
+
 ### Usage
 
 ```

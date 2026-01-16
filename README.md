@@ -6,7 +6,7 @@ Run multiple stateful Telegram bots on a single host
 ### TL&DR.
 tgbot-swarm sets up a container running nginx and nodejs controller that generates reverse proxy configs for nginx and reloads nginx when containers are started and stopped. It also creates self-signed certificate and exposes it through docker shared volume, making it easy to start multiple containers serving independent Telegram bots on a single host.
 
-
+#### Quick start
 ```
 git clone https://github.com/xyhtac/tgbot-swarm.git
 cd tgbot-swarm
@@ -19,34 +19,50 @@ export SWARM_DB_PASS=database_password_for_bot_application
 docker compose up -d
 ```
 
-### Usage
+### Docker Usage
+
+Make sure Docker (20.10+) is installed on your system: `docker --version`
+
+#### Create required directories and volumes
+```
+# Certificates
+sudo mkdir -p /opt/swarm-certificate
+docker volume create \
+  --driver local \
+  --opt type=none \
+  --opt device=/opt/swarm-certificate \
+  --opt o=bind \
+  tgbot-swarm-certificates
+
+# Database storage
+sudo mkdir -p /opt/swarm-datastore
+docker volume create \
+  --driver local \
+  --opt type=none \
+  --opt device=/opt/swarm-datastore \
+  --opt o=bind \
+  tgbot-swarm-datastore
+
+# Datastore controller state
+sudo mkdir -p /opt/swarm-datastore-state
+docker volume create \
+  --driver local \
+  --opt type=none \
+  --opt device=/opt/swarm-datastore-state \
+  --opt o=bind \
+  tgbot-swarm-datastore-state
 
 ```
-# Create a named volume for certificates
-mkdir -p "/opt/swarm-certificate" \
-docker volume create --driver local \
-    --opt type=none \
-    --opt device=/opt/swarm-certificate \
-    --opt o=bind tgbot-swarm-certificates
 
-# Create a named volume for databases
-mkdir -p "/opt/swarm-datastore" \
-docker volume create --driver local \
-    --opt type=none \
-    --opt device=/opt/swarm-datastore \
-    --opt o=bind tgbot-swarm-datastore
-
-# Create a named volume for datastore controller state
-mkdir -p "/opt/swarm-datastore-state" \
-docker volume create --driver local \
-    --opt type=none \
-    --opt device=/opt/swarm-datastore-state \
-    --opt o=bind tgbot-swarm-datastore-state
-
-# Ensure a named network exists
-docker network inspect tgbot-swarm >/dev/null 2>&1 || \\
+#### Create Docker network
+```
+docker network inspect tgbot-swarm >/dev/null 2>&1 || \
 docker network create --driver bridge tgbot-swarm
 
+```
+
+#### Run separate docker containers
+```
 # Spin up tgbot-swarm nginx + controller
 docker run -d --name tgbot-swarm-controller \
     --restart unless-stopped \

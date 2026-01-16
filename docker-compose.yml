@@ -1,0 +1,61 @@
+version: "2.0"
+
+name: tgbot-swarm
+
+services:
+  controller:
+    image: xyhtac/tgbot-swarm:latest
+    container_name: tgbot-swarm-controller
+    restart: unless-stopped
+    networks:
+      - tgbot-swarm
+    ports:
+      - "443:443/tcp"
+    environment:
+      HOSTNAME: foo.bar.com
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - tgbot-swarm-certificates:/etc/nginx/certs
+
+  datastore:
+    image: xyhtac/tgbot-swarm-datastore:latest
+    container_name: tgbot-swarm-datastore
+    restart: unless-stopped
+    networks:
+      - tgbot-swarm
+    environment:
+      DB_PORT: "3306"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - tgbot-swarm-datastore:/var/lib/mysql
+      - tgbot-swarm-datastore-state:/app/state
+
+  samplebot:
+    image: xyhtac/tgbot-swarm-samplebot:latest
+    container_name: tgbot-swarm-samplebot
+    restart: unless-stopped
+    networks:
+      - tgbot-swarm
+    ports:
+      - "3300:3300/tcp"
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      SWARM_DB_PASS: ${SWARM_DB_PASS}
+      SWARM_DB_HOST: tgbot-swarm-datastore
+      SWARM_DB_STORE: samplebot
+      SWARM_PATH: samplebot
+      SWARM_PORT: "3300"
+    volumes:
+      - tgbot-swarm-certificates:/app/certs:ro
+
+networks:
+  tgbot-swarm:
+    external: true
+
+volumes:
+  tgbot-swarm-certificates:
+    external: true
+  tgbot-swarm-datastore:
+    external: true
+  tgbot-swarm-datastore-state:
+    external: true

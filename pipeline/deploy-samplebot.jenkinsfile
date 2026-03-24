@@ -19,7 +19,7 @@ pipeline {
 
         // Network Configuration
         PROXY_PORT              = "8443"
-        SWARM_RANGE_START       = "3300"
+        SWARM_RANGE_START       = "3600"
         SWARM_RANGE_END         = "3900"
         SERVICE_PROTO           = "tcp"
 
